@@ -2,19 +2,21 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # add src/ to path
 
-# app.py â€” Gradio UI, orchestrates the full pipeline
+# app.py — Gradio UI, orchestrates the full pipeline
 import json
 import gradio as gr
+import plotly.graph_objects as go
+import pandas as pd
 
 from core.extractor import extract_article, extract_text
 from core.keypoints import extract_keypoints
 from core.pestle    import classify_pestle
 from core.sentiment import classify_sentiment
 from core.impact    import aggregate_by_pestle, overall_impact, ddrm_status, point_impact
-from config    import KEYPOINTS_MAX
+from config         import KEYPOINTS_MAX, PESTLE_WEIGHTS, DDRM_THRESHOLDS
 
 
-# â”€â”€ core pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── core pipeline ─────────────────────────────────────────────────────────────
 
 def run_pipeline(input_text: str, input_mode: str, max_points: int) -> dict:
     """
@@ -30,7 +32,7 @@ def run_pipeline(input_text: str, input_mode: str, max_points: int) -> dict:
     # 2. Key points
     keypoints = extract_keypoints(text, max_points=int(max_points))
 
-    # 3â€“5. PESTLE â†’ route â†’ sentiment for each key point
+    # 3–5. PESTLE → route → sentiment for each key point
     evidence = []
     for sentence, relevance in keypoints:
         pestle_result    = classify_pestle(sentence)
@@ -84,9 +86,9 @@ def run_pipeline(input_text: str, input_mode: str, max_points: int) -> dict:
     }
 
 
-# â”€â”€ UI renderers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── UI renderers ──────────────────────────────────────────────────────────────
 
-VERDICT_EMOJI = {"Maintain": "ðŸŸ¢", "Adjust": "ðŸŸ¡", "Revise": "ðŸ”´"}
+VERDICT_EMOJI = {"Maintain": "🟢", "Adjust": "🟡", "Revise": "🔴"}
 
 def _format_summary(result: dict) -> str:
     v = result["verdict"]
@@ -98,7 +100,7 @@ def _format_summary(result: dict) -> str:
         "### PESTLE breakdown",
     ]
     for pestle, data in result["by_pestle"].items():
-        bar   = "â–ˆ" * int(data["avg_impact"] * 10) + "â–‘" * (10 - int(data["avg_impact"] * 10))
+        bar   = "█" * int(data["avg_impact"] * 10) + "░" * (10 - int(data["avg_impact"] * 10))
         lines.append(f"- **{pestle}** `{bar}` SKD={data['skd']:.2f}  (n={data['n']})")
     return "\n".join(lines)
 
@@ -107,7 +109,7 @@ def _format_evidence(result: dict) -> str:
     rows = ["| # | Sentence | PESTLE | Sentiment | Relevance | Contribution |",
             "|---|----------|--------|-----------|-----------|--------------|"]
     for i, e in enumerate(result["evidence"], 1):
-        short = e["sentence"][:80] + "â€¦" if len(e["sentence"]) > 80 else e["sentence"]
+        short = e["sentence"][:80] + "…" if len(e["sentence"]) > 80 else e["sentence"]
         rows.append(
             f"| {i} | {short} | {e['pestle']} ({e['pestle_conf']:.2f}) "
             f"| {e['sentiment_label']} ({e['sent_confidence']:.2f}) "
@@ -116,16 +118,16 @@ def _format_evidence(result: dict) -> str:
     return "\n".join(rows)
 
 
-# â”€â”€ Gradio handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Gradio handler ────────────────────────────────────────────────────────────
 
 def analyse(input_text: str, input_mode: str, max_points: int):
     if not input_text.strip():
-        return "âš ï¸ Please provide a URL or text.", "", "{}"
+        return "⚠️ Please provide a URL or text.", "", "{}"
 
     try:
         result = run_pipeline(input_text, input_mode, max_points)
     except Exception as exc:
-        return f"âŒ Error: {exc}", "", "{}"
+        return f"❌ Error: {exc}", "", "{}"
 
     summary  = _format_summary(result)
     evidence = _format_evidence(result)
@@ -134,7 +136,7 @@ def analyse(input_text: str, input_mode: str, max_points: int):
     return summary, evidence, json_out
 
 
-# â”€â”€ Gradio UI layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Gradio UI layout ──────────────────────────────────────────────────────────
 
 with gr.Blocks(title="Drivers & Trends Impact Assessment") as demo:
     gr.Markdown("# Drivers & Trends Impact Assessment\nPaste a news URL or raw text to assess roadmap impact.")

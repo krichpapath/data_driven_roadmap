@@ -2,7 +2,13 @@
 # Install: pip install -r requirements.txt
 
 # Web scraping & content extraction
+trafilatura>=1.12.0
 newspaper3k>=0.2.8
+readability-lxml>=0.8.1
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+lxml>=4.9.0
+lxml_html_clean>=0.1.0
 
 # ML & NLP
 transformers>=4.35.0
@@ -12,6 +18,8 @@ numpy>=1.24.0
 
 # UI
 gradio>=4.0.0
+plotly>=5.18.0
+pandas>=2.0.0
 
 # Utilities
 pytz>=2023.3
