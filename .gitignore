@@ -1,0 +1,107 @@
+# =============================================================================
+# .gitignore for the Roadmapping repo
+# =============================================================================
+# Strategy: only the prototype/ folder (code + assets + README + requirements)
+# should be tracked. Research papers, university reports, runtime logs, virtual
+# environments, and the archive of stale code stay LOCAL ONLY.
+# =============================================================================
+
+# --- Top-level folders that must NOT be pushed ------------------------------
+# Internal university reports, drafts, .tex sources, templates
+docs/
+
+# Third-party research papers (copyright concerns)
+references/
+
+# Stale code snapshots and large unused virtualenv from before the cleanup
+archive/
+
+# Runtime output (may contain personal data)
+logs/
+
+# --- Python virtual environments --------------------------------------------
+venv/
+.venv/
+env/
+ENV/
+
+# --- Python build / cache artifacts -----------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Test / type-check / lint caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# --- Hugging Face / model caches --------------------------------------------
+# These can balloon to many GB if a download lands inside the repo by accident
+.cache/
+hf_cache/
+**/transformers_cache/
+**/huggingface/
+**/models_cache/
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.ckpt
+
+# --- Notebooks --------------------------------------------------------------
+.ipynb_checkpoints/
+
+# --- Local secrets / env files ----------------------------------------------
+.env
+.env.*
+!.env.example
+secrets.toml
+*.key
+*.pem
+
+# --- IDE / editor noise -----------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# --- Claude / AI assistant local config -------------------------------------
+.claude/
+**/.claude/
+
+# --- OS junk ----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# --- LaTeX build artifacts (in case any leak into prototype/) ---------------
+*.aux
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.log
+*.out
+*.toc
+
+# --- One-off operational scripts from the folder cleanup --------------------
+# These did their job once. Untrack to keep the repo clean.
+# If you want to keep them in the repo for reproducibility, comment these out.
+reorganize.ps1
+REORGANIZATION_PLAN.md
+GIT_PUSH_GUIDE.md
