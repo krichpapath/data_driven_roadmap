@@ -102,10 +102,11 @@ def aggregate_by_pestle(points: List[Dict]) -> Dict[str, Dict]:
         pestle_confidence float     0..1  (optional, stored for traceability)
 
     Returns:
-        { pestle: { "skd": float, "avg_impact": float, "n": int } }
+        { pestle: { "skd": float, "avg_impact": float, "n": int, "n_active": int } }
         skd        = SKD_i  raw score  (0..2)
         avg_impact = SKD_i / 2         normalized to 0..1 for charts
-        n          = number of key points in this driver
+        n          = total key points routed to this driver
+        n_active   = key points with x_ij > 0 (i.e. above tolerance band)
     """
     # Group key points by PESTLE driver
     groups: Dict[str, List[Dict]] = {d: [] for d in PESTLE_ORDER}
@@ -119,7 +120,7 @@ def aggregate_by_pestle(points: List[Dict]) -> Dict[str, Dict]:
         rows = groups[driver]
 
         if not rows:
-            result[driver] = {"skd": 0.0, "avg_impact": 0.0, "n": 0}
+            result[driver] = {"skd": 0.0, "avg_impact": 0.0, "n": 0, "n_active": 0}
             continue
 
         # Step 1+2: compute magnitude and discrete level for each key point
@@ -144,6 +145,7 @@ def aggregate_by_pestle(points: List[Dict]) -> Dict[str, Dict]:
             "skd":        round(skd, 4),
             "avg_impact": round(min(1.0, skd / 2.0), 4),  # 0..1 for charts
             "n":          len(rows),
+            "n_active":   sum(1 for x in x_levels if x > 0),
         }
 
     return result
@@ -165,8 +167,12 @@ def overall_impact(points: List[Dict]) -> float:
     """
     by_pestle = aggregate_by_pestle(points)
 
-    # Identify active drivers (those that have at least one key point)
-    active_drivers = [d for d in PESTLE_ORDER if by_pestle[d]["n"] > 0]
+    # Identify ACTIVE drivers — paper-aligned: a driver is active iff at least
+    # one of its key points produced x_ij > 0 (i.e. crossed τ_low). Drivers
+    # whose every pick was below tolerance contribute zero to STRM by
+    # definition; counting them as active would dilute w_i* over inactive
+    # mass and depress the score artificially.
+    active_drivers = [d for d in PESTLE_ORDER if by_pestle[d]["n_active"] > 0]
 
     if not active_drivers:
         return 0.0

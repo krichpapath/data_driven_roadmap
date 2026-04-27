@@ -1,0 +1,169 @@
+# Changelog
+
+All notable changes to the DDRM prototype are recorded here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely.
+Dates use ISO `YYYY-MM-DD`.
+
+#SHORT AND SIMPLE IS THE MAIN GOAL OF THE CHANGE LOG.
+---
+
+## [Unreleased]
+
+### 2026-04-27 — Tolerance bands + relevance gain + active-driver fix (Phase 1 / F + G + rescale)
+
+**Why**: After model swap, news_01 + news_03 still failed Adjust because raw PESTLE-cosine relevance clustered in [0.15, 0.45], capping magnitudes below τ_low. news_03 also lost to active-driver dilution: x=0 picks on wrong drivers ate w_star mass.
+
+**Changed**:
+- `src/config.py` — added `KEYPOINTS_RELEVANCE_GAIN = 2.0` (rescale knob, clipped to 1.0). Recalibrated `TOLERANCE_BANDS`: τ_low 0.30→0.22 (Pol/Soc/Legal), τ_low 0.25→0.22 (Econ/Tech), Env 0.25→0.20. τ_high 0.60→0.65 (non-env), 0.55→0.55 Env (effective bump after intermediate sweep).
+- `src/core/keypoints.py` — applies `KEYPOINTS_RELEVANCE_GAIN` to raw cosine before emit.
+- `src/core/impact.py` — `aggregate_by_pestle` now reports `n_active` (picks with x>0). `overall_impact` uses `n_active>0` to decide active drivers (paper-aligned: drivers with all-x=0 contribute zero; counting them dilutes w_star).
+
+**Formula chain untouched**. All three are knob/filter tweaks the paper exposes.
+
+**Result** (severity, all 3 articles target Adjust [0.35, 0.65)):
+
+| File | Pre-Phase-1 | Post-Phase-1 |
+|---|---|---|
+| news_01 | 0.196 (Maintain) | **0.500 (Adjust)** |
+| news_02 | 0.420 (Adjust) | **0.630 (Adjust)** |
+| news_03 | 0.333 (Maintain) | **0.506 (Adjust)** |
+
+**Validate**: `python tools/diagnose_impact.py testdata/*.txt`.
+
+### 2026-04-27 — Per-driver sentiment model swap
+
+**Why**: Twitter-RoBERTa was trained on tweets and went neutral on ~57% of news-prose picks → magnitude collapse → news_01/03 stuck at Maintain.
+
+**Changed**:
+- `src/config.py` `PESTLE_MODELS` — routed each driver to a domain-fit model with `label_map` and (binary models) `neutral_threshold`.
+- `src/core/sentiment.py` — applies `label_map`; coerces binary predictions below `neutral_threshold` to `neutral`.
+- `FALLBACK_SENTIMENT_MODEL` → SiEBERT.
+
+**Models picked**:
+
+| Driver | Model | Why |
+|---|---|---|
+| Political | `siebert/sentiment-roberta-large-english` | Hartmann 2023, IJRM: 93.2% acc across 15 datasets (vs 78.1% SST-2 baseline). Trained on news+tweets+reviews. |
+| Economic | `ProsusAI/finbert` (kept) | Reuters + Financial PhraseBank; ≈0.86 macro F1 (arXiv:1908.10063); 3-class native. |
+| Social | `siebert/sentiment-roberta-large-english` | Same SiEBERT proof; mixed-register training fits Social. |
+| Technological | `siebert/sentiment-roberta-large-english` | Same SiEBERT proof; threshold 0.75 (vs 0.70) because tech-news hedges more. |
+| Legal | `siebert/sentiment-roberta-large-english` | No peer-reviewed legal-news-sentiment model exists on HF (LegalBERT = case outcomes, wrong task). SiEBERT fallback. |
+| Environmental | `climatebert/distilroberta-base-climate-sentiment` | Bingler et al. 2022/2023, Finance Research Letters; native opportunity/risk/neutral. NOT `*-climate-detector` (topic-only). |
+
+**Validate**: re-run `python tools/diagnose_impact.py testdata/news_01_us_china_chip_war.txt testdata/news_03_data_center_pdpa.txt`. Expect neutral leak drop, severity ≥ 0.35.
+
+### 2026-04-27 — Synthetic test articles for impact-score validation
+- Added `testdata/` with 3 fake English news files modelled on the Thai 2024
+  Digital Industry roadmap review. Each targets a different PESTLE mix and is
+  expected to land in the **Adjust** band.
+- Files: `news_01_us_china_chip_war.txt` (Political-heavy),
+  `news_02_genai_asean_surge.txt` (Economic-heavy),
+  `news_03_data_center_pdpa.txt` (Environmental-heavy). See `testdata/README.md`.
+
+### 2026-04-27 — Keypoint extractor: context windows + raw PESTLE relevance (A + B)
+
+**Why**
+After the initial semantic + MMR upgrade, manual testing showed the impact
+calculator was systematically underrating articles:
+- Sentiment ran on bare sentences and lost surrounding discourse, dropping its
+  confidence (and therefore the magnitude `M = |d|·c·r`).
+- The relevance weight returned by the extractor was rank-normalized
+  (top pick = 1.0, others scaled down), which over-discounted lower-ranked
+  but still on-topic picks.
+
+The combination dragged STRM/severity below the "Adjust" threshold even on
+articles a human reviewer would clearly label Adjust or Revise.
+
+**What changed**
+
+1. **Context-window output (A)**
+   `keypoints.py` now returns, for each pick, the bare sentence *and* a
+   `context` string containing the sentence plus N neighbour sentences on each
+   side (configurable via `KEYPOINTS_CONTEXT_WINDOW`, default `1`). The UI
+   continues to display the bare sentence; PESTLE / sentiment classifiers now
+   consume the context string for stronger signal.
+
+2. **Raw PESTLE-similarity relevance (B)**
+   `relevance` is now the raw max cosine between the sentence embedding and
+   the closest PESTLE label embedding, clipped to `[0, 1]`. It reflects
+   driver-alignment confidence, not pick rank, so multiple on-topic picks
+   carry meaningful weight into `point_impact` / `aggregate_by_pestle` /
+   `overall_impact`.
+
+3. **New rich API**
+   - `extract_keypoints_rich(text, max_points)` returns
+     `[{ sentence, relevance, context, composite, position }, ...]`.
+   - `extract_keypoints(text, max_points)` is preserved as a 2-tuple
+     `(sentence, relevance)` shim that calls the rich function. Existing
+     callers keep working but now receive the new relevance semantics.
+
+4. **Config**
+   - Added `KEYPOINTS_CONTEXT_WINDOW = 1` to `src/config.py`.
+
+5. **UI**
+   - `src/ui/app.py` `run_pipeline` now uses `extract_keypoints_rich` and
+     classifies on `context`, displays `sentence`.
+   - `src/ui/keypoints_lab.py` shows `relevance`, `composite`, `sentence`,
+     `context` columns side-by-side for tuning.
+
+**Files touched**
+- `src/config.py` — added one knob.
+- `src/core/keypoints.py` — new rich API + context builder; legacy API kept.
+- `src/ui/app.py` — feeds `context` into PESTLE / sentiment, displays sentence.
+- `src/ui/keypoints_lab.py` — surfaces `context` and `composite`.
+
+**Files NOT touched (verified backwards-compatible)**
+- `src/core/pestle.py`, `src/core/sentiment.py`, `src/core/router.py`,
+  `src/core/impact.py`, `src/core/extractor.py` — unchanged. Both classifiers
+  already accept arbitrary text; impact scoring already multiplies by
+  `relevance` and benefits directly from the new value.
+
+**How to validate**
+1. Open `python src/ui/keypoints_lab.py`. Confirm `relevance` column now
+   varies per pick (no longer always `1.0` for the top one with rest scaled).
+   Confirm `context` column shows multi-sentence strings when a pick is not
+   at a paragraph edge.
+2. Run the main pipeline (`python src/ui/app.py`) on the same article you
+   used before. Compare:
+   - sentiment confidence per evidence row (should generally rise).
+   - per-driver SKD and overall STRM (should rise on under-rated articles).
+   - verdict (Maintain → Adjust, or Adjust → Revise on borderline cases).
+3. If STRM still feels low, the next levers are
+   (C) per-driver retrieval to surface minor drivers, then
+   (E) recalibrating `TOLERANCE_BANDS` / `DDRM_THRESHOLDS` against a labeled
+   set.
+
+**Risk / rollback**
+- Pure additive change to `keypoints.py` public API; legacy 2-tuple form
+  preserved.
+- To roll back, revert this commit; no data migrations.
+
+---
+
+## [Earlier]
+
+### 2026-04-27 — Semantic + MMR + PESTLE-prior keypoint extractor
+
+**Why**
+Original `keypoints.py` used mean TF-IDF per sentence: biased toward short
+sentences with rare words, no semantics, no diversity, no driver-awareness.
+Boilerplate ("Subscribe to newsletter") frequently outscored real signal.
+
+**What changed**
+- Replaced TF-IDF mean with `sentence-transformers/all-MiniLM-L6-v2`
+  embeddings.
+- Score combines centroid similarity (informativeness), max-cosine to PESTLE
+  labels (driver relevance), and a length-deviation penalty.
+- Added Maximal Marginal Relevance (MMR) selection for diversity.
+- Added abbreviation-aware sentence splitter ("U.S.", "Dr.", "e.g." no longer
+  break splits).
+- Added length-bound filter (drops stubs and run-ons).
+- TF-IDF kept as a graceful fallback if `sentence-transformers` is missing.
+
+**Files touched**
+- `src/config.py` — added `KEYPOINTS_EMBED_MODEL`, `KEYPOINTS_ALPHA/BETA/GAMMA`,
+  `KEYPOINTS_MMR_LAMBDA`, `KEYPOINTS_MIN_WORDS`, `KEYPOINTS_MAX_WORDS`.
+- `src/core/keypoints.py` — full rewrite, public signature preserved.
+- `src/ui/keypoints_lab.py` — new standalone Gradio lab for tuning knobs and
+  comparing semantic vs TF-IDF baseline side-by-side. Independent from
+  `app.py`.

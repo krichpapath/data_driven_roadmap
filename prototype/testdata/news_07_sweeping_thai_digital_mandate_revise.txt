@@ -1,0 +1,15 @@
+Thailand Unveils Sweeping Digital Mandate Reshaping AI, Telecom, and Data Rules
+
+BANGKOK — The Thai government today announced a sweeping omnibus digital mandate that fundamentally reshapes the regulatory landscape for artificial intelligence, telecommunications, data infrastructure, and the digital workforce. The package is the most ambitious overhaul of digital industry rules in the country's history.
+
+A new Thai AI Act introduces strict licensing requirements for high-risk artificial-intelligence systems and mandates extensive transparency obligations. The Act establishes severe penalties for non-compliant deployments and creates a powerful new regulator with broad enforcement authority. Legal experts said the framework dramatically tightens accountability and sets a firm new compliance benchmark.
+
+A landmark spectrum auction has been ordered to reallocate critical 5G and 6G frequencies, unlocking unprecedented investment opportunities for mobile operators and unleashing a surge of new market entrants. Auction proceeds are projected to deliver record revenue to the state. Telecom analysts said the reallocation is transformative and will reshape competitive dynamics for the next decade.
+
+Mandatory carbon-intensity caps will be imposed on all hyperscale data centres, requiring rapid migration to verified renewable power and aggressive water-recycling systems. Environmental groups strongly welcomed the rules as decisive action against the sector's runaway footprint. Several international hyperscalers said they will accelerate clean-energy investments to comply.
+
+A sweeping new digital-services tax targeting cross-border e-commerce platforms imposes heavy levies on foreign operators while channelling generous tax credits to domestic small firms. Economists said the package will dramatically rebalance market dynamics and produce a powerful boost to domestic digital revenue. Foreign chambers of commerce condemned the measures as protectionist and damaging to investor confidence.
+
+A massive workforce transformation programme will fund retraining for hundreds of thousands of mid-skill workers displaced by automation, with strict employer obligations and substantial tax credits. Unions strongly endorsed the programme as historic protection for vulnerable workers. Industry leaders praised the initiative but warned the compliance burden is severe.
+
+Strict new data-localisation rules require all sensitive personal data to be stored on certified domestic infrastructure, fundamentally restructuring cross-border data flows and forcing major platforms to overhaul their architectures. Cabinet officials said the mandate decisively secures national digital sovereignty and is expected to fundamentally alter the country's digital trajectory for the foreseeable future.

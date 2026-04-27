@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# Diagnostic / generated artifacts
+tools/diagnostic_output/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Source research material (large, possibly copyrighted — keep out of repo)
+*.pdf
+
+# HF cache (just in case it lands in repo dir)
+.cache/

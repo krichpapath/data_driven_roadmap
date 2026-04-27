@@ -1,0 +1,13 @@
+Thai GenAI Pilot Program Begins Early Trials at Selected Agencies
+
+BANGKOK — A small pilot program exploring generative artificial intelligence applications quietly began at a handful of Thai government agencies this month. Officials described the trials as exploratory and emphasised that the initiative is in its earliest evaluation phase.
+
+A spokesperson said early indications from the pilot are inconclusive and that more data will be needed before the agencies form firm judgements. The selected use cases include routine document drafting and limited customer-enquiry triage. Several participating agencies declined to disclose vendor details, citing standard procurement confidentiality.
+
+Researchers involved in the pilot said preliminary observations suggest the technology may eventually offer modest productivity gains in narrow use cases. They cautioned, however, that effects on staff workload, citizen satisfaction, and service quality remain unclear. Independent observers said any conclusions at this stage would be premature.
+
+The Digital Economy Promotion Agency confirmed that no procurement framework changes are planned during the pilot. A draft guideline on AI procurement remains under internal review, with no fixed timeline for publication. Officials said any future scaling decision would depend on a full evaluation report expected in coming quarters.
+
+The pilot's environmental footprint is reportedly limited because workloads run on existing shared cloud capacity rather than dedicated infrastructure. There has been no measurable change to facility power draw to date. No water or e-waste impacts have been reported, although organisers said long-term assessment requires more time.
+
+Civil-society observers said the program appears to be in line with previously announced exploratory plans. Industry associations described the trial as routine and noted that several similar pilots are underway elsewhere in the region. The Ministry has not signalled any change to its broader digital-industry roadmap as a result of the trial.

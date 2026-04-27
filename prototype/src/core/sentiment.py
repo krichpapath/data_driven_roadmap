@@ -55,15 +55,26 @@ def classify_sentiment(sentence: str, pestle_label: str) -> Dict:
             "model_id":   str    which model was used
         }
     """
-    cfg      = get_model_config(pestle_label)
-    model_id = cfg["model_id"]
-    max_len  = cfg.get("max_length", 512)
+    cfg          = get_model_config(pestle_label)
+    model_id     = cfg["model_id"]
+    max_len      = cfg.get("max_length", 512)
+    label_map    = cfg.get("label_map") or {}
+    neutral_thr  = cfg.get("neutral_threshold")  # only set for binary models
 
     pipe   = _get_pipeline(model_id, max_len)
     result = pipe(sentence)[0]   # {"label": ..., "score": ...}
 
-    label      = _normalize_label(result["label"])
+    raw_label  = str(result["label"])
     confidence = round(float(result["score"]), 4)
+
+    # 1. Per-driver label_map first (handles model-specific labels like
+    #    "POSITIVE"/"NEGATIVE" or climate "opportunity"/"risk").
+    mapped = label_map.get(raw_label) or label_map.get(raw_label.lower())
+    label  = mapped if mapped else _normalize_label(raw_label)
+
+    # 2. Synthesize neutral for binary-head models when confidence is low.
+    if neutral_thr is not None and label in ("positive", "negative") and confidence < neutral_thr:
+        label = "neutral"
 
     return {
         "label":      label,
