@@ -47,6 +47,18 @@ PESTLE_LABEL_VERBALIZED = [
 # register and the single-label-classification task framing.
 PESTLE_HYPOTHESIS_TEMPLATE = "This news text is primarily about {}."
 
+# Domain-relevance gate for the PESTLE classifier. If the top NLI score is
+# below this threshold the pick is labelled "Unclassified" and excluded from
+# the impact aggregation (aggregate_by_pestle iterates PESTLE_ORDER, so any
+# non-PESTLE label is silently dropped from SKD/STRM math).
+# Reason: zero-shot NLI force-routes every sentence to one of six labels even
+# when none fit (e.g. movie / sports news → "Social" by default). Without a
+# floor, off-domain articles produce active drivers and inflate severity.
+# Threshold chosen at the lower edge of the typical in-domain confidence
+# distribution observed in tools/diagnostic_output (in-domain top score
+# usually ≥0.50; off-domain typically clusters 0.30–0.45).
+PESTLE_MIN_CONFIDENCE = 0.45
+
 # ── Sentiment model per PESTLE driver ─────────────────────────────────────────
 # Maps each PESTLE label → HuggingFace model + how to read its output labels.
 #   label_map         : raw model label → canonical {positive, negative, neutral}
@@ -148,7 +160,7 @@ KEYPOINTS_CONTEXT_WINDOW = 1
 # A gain of 2.0 (clipped to 1.0) maps 0.25 → 0.50, 0.40 → 0.80, lifting
 # magnitudes into the τ_low..τ_high band where Step 2 produces meaningful x_ij.
 # Engineering knob — does NOT modify the formula chain.
-KEYPOINTS_RELEVANCE_GAIN = 2.0
+KEYPOINTS_RELEVANCE_GAIN = 1.4
 
 # ── DDRM impact scoring ───────────────────────────────────────────────────────
 

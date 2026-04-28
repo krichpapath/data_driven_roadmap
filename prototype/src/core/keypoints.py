@@ -28,6 +28,17 @@ from typing import List, Tuple, Dict, Any
 from config import KEYPOINTS_MIN, KEYPOINTS_MAX, PESTLE_LABELS
 
 try:
+    from config import PESTLE_LABEL_VERBALIZED
+except ImportError:
+    PESTLE_LABEL_VERBALIZED = PESTLE_LABELS
+
+# Anchors used for the relevance cosine. Verbalized phrases give MiniLM a
+# narrower semantic target than the bare single-word PESTLE labels (which
+# attract any cultural/people prose, e.g. movie news → "Social"). Falls
+# back to the short labels if the verbalized list is unavailable.
+_RELEVANCE_ANCHORS = PESTLE_LABEL_VERBALIZED if PESTLE_LABEL_VERBALIZED else PESTLE_LABELS
+
+try:
     from config import (
         KEYPOINTS_EMBED_MODEL,
         KEYPOINTS_ALPHA,
@@ -123,7 +134,7 @@ def _score_semantic(sentences: List[str]):
 
     sent_emb = _embed(sentences)
     centroid = sent_emb.mean(axis=0, keepdims=True)
-    label_emb = _embed(PESTLE_LABELS)
+    label_emb = _embed(_RELEVANCE_ANCHORS)
 
     sim_centroid = (sent_emb @ centroid.T).ravel()
     sim_labels = (sent_emb @ label_emb.T).max(axis=1)

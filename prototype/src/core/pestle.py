@@ -17,6 +17,13 @@ from config import (
     PESTLE_HYPOTHESIS_TEMPLATE,
 )
 
+try:
+    from config import PESTLE_MIN_CONFIDENCE
+except ImportError:
+    PESTLE_MIN_CONFIDENCE = 0.0
+
+UNCLASSIFIED_LABEL = "Unclassified"
+
 _classifier = None   # loaded once on first call
 
 # Verbalized phrase → canonical short label (positional pairing in config).
@@ -58,10 +65,16 @@ def classify_pestle(sentence: str) -> Dict:
     # the verbalized phrases — back-map to canonical PESTLE labels.
     canonical = [_VERBALIZED_TO_LABEL.get(lbl, lbl) for lbl in out["labels"]]
 
-    label      = canonical[0]
+    top_label  = canonical[0]
     confidence = round(out["scores"][0], 4)
     top2       = [(canonical[i], round(out["scores"][i], 4))
                   for i in range(min(2, len(canonical)))]
+
+    # Domain-relevance gate. Below threshold → mark as Unclassified so the
+    # pick is dropped from SKD/STRM aggregation. The PESTLE_ORDER iteration
+    # in impact.aggregate_by_pestle ignores any label not in the canonical
+    # six, so "Unclassified" picks contribute zero to severity.
+    label = top_label if confidence >= float(PESTLE_MIN_CONFIDENCE) else UNCLASSIFIED_LABEL
 
     return {
         "label":      label,

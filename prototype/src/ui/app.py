@@ -161,10 +161,37 @@ def _normalise_pestle(raw) -> dict:
     }
 
 
-def _load_input(input_text: str, input_mode: str) -> tuple[str, str]:
+def _read_text_file(file_path) -> tuple[str, str]:
+    if not file_path:
+        raise ValueError("Please upload a text file.")
+
+    path = Path(file_path)
+    if not path.exists():
+        raise ValueError("Uploaded text file could not be found.")
+
+    raw = path.read_bytes()
+    for encoding in ("utf-8-sig", "utf-8", "cp1252"):
+        try:
+            text = raw.decode(encoding).strip()
+            break
+        except UnicodeDecodeError:
+            continue
+    else:
+        text = raw.decode("utf-8", errors="replace").strip()
+
+    if not text:
+        raise ValueError("Uploaded text file is empty.")
+
+    return path.name, text
+
+
+def _load_input(input_text: str, input_mode: str, input_file=None) -> tuple[str, str]:
+    if input_mode == "Text file":
+        return _read_text_file(input_file)
+
     text = (input_text or "").strip()
     if not text:
-        raise ValueError("Please provide a URL or article text.")
+        raise ValueError("Please provide a URL, article text, or text file.")
 
     if input_mode == "URL":
         return extract_article(text)
@@ -180,8 +207,8 @@ def _load_input(input_text: str, input_mode: str) -> tuple[str, str]:
 # Pipeline
 # ─────────────────────────────────────────────────────────────
 
-def run_pipeline(input_text: str, input_mode: str, max_points: int) -> dict:
-    title, text = _load_input(input_text, input_mode)
+def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int) -> dict:
+    title, text = _load_input(input_text, input_mode, input_file)
 
     keypoints = extract_keypoints_rich(text, max_points=int(max_points))
 
@@ -572,12 +599,15 @@ def blank_outputs(message: str):
     )
 
 
-def analyse(input_text: str, input_mode: str, max_points: int):
-    if not (input_text or "").strip():
+def analyse(input_text: str, input_mode: str, input_file, max_points: int):
+    if input_mode == "Text file":
+        if not input_file:
+            return blank_outputs("Upload a text file to begin.")
+    elif not (input_text or "").strip():
         return blank_outputs("Provide a URL or text to begin.")
 
     try:
-        result = run_pipeline(input_text, input_mode, max_points)
+        result = run_pipeline(input_text, input_mode, input_file, max_points)
 
         decision_md = build_decision_md(result)
         action_md = build_action_md(result)
@@ -612,6 +642,18 @@ def analyse(input_text: str, input_mode: str, max_points: int):
 # Gradio 6 UI
 # ─────────────────────────────────────────────────────────────
 
+def update_input_controls(input_mode: str):
+    file_mode = input_mode == "Text file"
+    placeholder = "Paste a news URL or report URL here."
+    if input_mode == "Text":
+        placeholder = "Paste article text here."
+
+    return (
+        gr.update(visible=not file_mode, placeholder=placeholder),
+        gr.update(visible=file_mode),
+    )
+
+
 slider_max = max(3, int(KEYPOINTS_MAX))
 slider_default = min(5, slider_max)
 
@@ -625,7 +667,7 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
     with gr.Row():
         with gr.Column(scale=1):
             input_mode = gr.Radio(
-                choices=["URL", "Text"],
+                choices=["URL", "Text", "Text file"],
                 value="URL",
                 label="Input type",
             )
@@ -634,6 +676,13 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
                 label="Evidence source",
                 lines=8,
                 placeholder="Paste a news URL, report URL, or article text here.",
+            )
+
+            input_file = gr.File(
+                label="Text file",
+                file_types=[".txt"],
+                type="filepath",
+                visible=False,
             )
 
             max_points = gr.Slider(
@@ -689,9 +738,15 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
                 label="Full JSON output",
             )
 
+    input_mode.change(
+        fn=update_input_controls,
+        inputs=[input_mode],
+        outputs=[input_box, input_file],
+    )
+
     run_btn.click(
         fn=analyse,
-        inputs=[input_box, input_mode, max_points],
+        inputs=[input_box, input_mode, input_file, max_points],
         outputs=[
             decision_md,
             action_md,
