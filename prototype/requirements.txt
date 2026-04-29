@@ -21,6 +21,8 @@ numpy>=1.24.0
 gradio>=4.0.0
 plotly>=5.18.0
 pandas>=2.0.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
 
 # Utilities
 pytz>=2023.3

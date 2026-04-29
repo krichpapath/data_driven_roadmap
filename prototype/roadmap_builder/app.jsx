@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Icon, InfoDot, StartScreen, TemplatePicker, CoachRail, RoadmapGrid, ItemModal, GlossaryModal, ImportModal, StructureModal, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
+/* global React, ReactDOM, Icon, InfoDot, StartScreen, TemplatePicker, CoachRail, RoadmapGrid, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
 const STORAGE_KEY = "ddrm_v1";
 
 function loadSaved() {
@@ -27,6 +27,7 @@ function App() {
   const [showImport, setShowImport] = React.useState(false);
   const [showGloss, setShowGloss] = React.useState(false);
   const [showStructure, setShowStructure] = React.useState(false);
+  const [showImpactAdvisor, setShowImpactAdvisor] = React.useState(false);
   const [itemModal, setItemModal] = React.useState({ open: false, item: null, prefill: null });
   const [toast, setToast] = React.useState({ on: false, msg: "" });
   const [coachStep, setCoachStep] = React.useState("name");
@@ -267,6 +268,31 @@ function App() {
     );
   };
 
+  const applyGuidanceNotes = (items, result) => {
+    if (!items.length) return;
+    const byId = Object.fromEntries(items.map(item => [item.item_id, item]));
+    setState(s => ({
+      ...s,
+      items: s.items.map(item => {
+        const advice = byId[item.id];
+        if (!advice) return item;
+        const note = [
+          `Impact review (${result?.verdict || "Review"}): ${advice.suggested_change}`,
+          advice.evidence_basis ? `Evidence: ${advice.evidence_basis}` : ""
+        ].filter(Boolean).join("\n");
+        const existing = item.description || "";
+        return {
+          ...item,
+          reviewNeeded: true,
+          lastImpactVerdict: result?.verdict || "",
+          description: existing ? `${existing}\n\n${note}` : note
+        };
+      })
+    }));
+    showToast(`Added advice to ${items.length} item${items.length === 1 ? "" : "s"}`);
+    setShowImpactAdvisor(false);
+  };
+
   const doReset = () => {
     if (!confirm("Reset to start screen? Your current roadmap is autosaved and you can re-load it from the start screen if needed.")) return;
     setPhase("start");
@@ -320,6 +346,9 @@ function App() {
           </button>
           <button className="btn btn-ghost btn-sm" onClick={() => setShowStructure(true)}>
             <Icon name="edit" size={14} /> Structure
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowImpactAdvisor(true)}>
+            <Icon name="search" size={14} /> News Impact
           </button>
           <button className="btn btn-ghost btn-sm" onClick={doExport}>
             <Icon name="download" size={14} /> Export JSON
@@ -483,6 +512,13 @@ function App() {
       )}
 
       <Toast on={toast.on} message={toast.msg} />
+
+      <ImpactAdvisor
+        open={showImpactAdvisor}
+        onClose={() => setShowImpactAdvisor(false)}
+        state={state}
+        onApplyGuidance={applyGuidanceNotes}
+      />
 
       <TweaksPanel title="Tweaks">
         <TweakSection title="Onboarding">

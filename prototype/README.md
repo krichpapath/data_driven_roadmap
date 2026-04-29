@@ -61,6 +61,32 @@ python src/ui/app.py
 
 Then open the URL shown in your terminal (typically `http://127.0.0.1:7860`).
 
+### Run the Integrated Roadmap Builder + Advisor
+
+Start the advisor API:
+
+```bash
+python src/api/roadmap_api.py
+```
+
+In another terminal, serve the builder:
+
+```bash
+cd roadmap_builder
+python -m http.server 8000
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000/DDRM%20Builder.html
+```
+
+Pick a roadmap template, then click **News Impact** in the top bar. The builder
+sends the current roadmap to the API, runs impact scoring, matches affected
+PESTLE drivers to roadmap items, and returns OpenRouter guidance when `.env`
+contains `OPENROUTER` or `OPENROUTER_API_KEY`.
+
 ### Programmatic Usage
 
 ```python
