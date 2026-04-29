@@ -150,11 +150,12 @@ def diagnose_file(path: Path, max_points: int = KEYPOINTS_MAX):
     for d in PESTLE_ORDER:
         info = by_pestle[d]
         n = info["n"]
+        n_active = info.get("n_active", 0)
         skd = info["skd"]
         avg = info["avg_impact"]
-        marker = " (active)" if n > 0 else ""
-        print(f"  {d:<14}  n={n:>2}  SKD={skd:>5.3f}  avg={avg:>5.3f}{marker}")
-        if n > 0:
+        marker = " (active)" if n_active > 0 else ""
+        print(f"  {d:<14}  n={n:>2}  n_active={n_active:>2}  SKD={skd:>5.3f}  avg={avg:>5.3f}{marker}")
+        if n_active > 0:
             active.append(d)
 
     print()

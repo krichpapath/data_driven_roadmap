@@ -19,6 +19,13 @@ Do not redistribute as real reporting.
 | `news_01_us_china_chip_war.txt` | Political (heavy), Legal, Technological, Economic | Adjust |
 | `news_02_genai_asean_surge.txt` | Economic (heavy), Technological, Social | Adjust |
 | `news_03_data_center_pdpa.txt`  | Environmental (heavy), Legal, Political | Adjust |
+| `news_04_routine_industry_briefing_maintain.txt` | Economic, Technological, Legal | Maintain |
+| `news_05_thai_genai_pilot_program_maintain.txt` | Technological, Environmental | Maintain |
+| `news_06_multi_crisis_digital_collapse_revise.txt` | Legal, Economic, Technological, Political | Revise |
+| `news_07_sweeping_thai_digital_mandate_revise.txt` | Technological, Legal, Economic | Revise |
+| `news_08_routine_clmv_data_workshop_maintain.txt` | Technological, Legal, Economic | Maintain |
+| `news_09_accelerated_industry_ai_sandbox_adjust.txt` | Technological, Economic, Legal, Social | Adjust |
+| `news_10_foreign_ai_investment_data_rules_revise.txt` | Political, Economic, Technological, Legal, Environmental, Social | Revise |
 
 ## How to use
 

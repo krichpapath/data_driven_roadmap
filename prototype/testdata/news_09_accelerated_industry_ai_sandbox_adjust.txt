@@ -1,0 +1,13 @@
+Thailand Expands Industrial AI Sandbox After Faster-Than-Expected Adoption
+
+BANGKOK - Thailand will expand its industrial AI sandbox after a 2024 review found that generative AI and applied analytics are spreading faster than planners expected. The Ministry of Digital Economy and Society said the next phase will focus on manufacturing, tourism, logistics, and health-service pilots that need shared data infrastructure and stronger Thai-language AI capability.
+
+Officials said the new sandbox does not replace the national digital-industry roadmap, but it brings several medium-term actions forward by twelve to eighteen months. The programme will add test environments for digital twins, computer vision, Thai NLP, cybersecurity validation, and API reuse so that local developers can move prototypes into commercial settings more quickly.
+
+Industry associations said the shift is important because companies are already using AI for document processing, predictive maintenance, customer support, fraud detection, and demand forecasting. Several firms reported measurable efficiency gains, but they also warned that fragmented datasets and a shortage of data engineers are slowing wider adoption.
+
+Universities will be asked to update short courses for data scientists, data analysts, cloud engineers, and AI governance officers. Officials said the training push responds to the roadmap review's concern that workforce planning must adapt as AI begins replacing some routine tasks while creating demand for higher-skill digital roles.
+
+The programme also includes a small fund for national-data management and CLMV data-linkage pilots. Regulators said participating agencies must document consent, access rights, and cybersecurity controls before using shared datasets in AI models.
+
+Analysts said the announcement is not a crisis, but it does change the timing and priority of several roadmap workstreams. They expect roadmap teams to adjust near-term milestones for AI infrastructure, talent development, and sandbox governance while keeping the long-term ASEAN expansion goal intact.

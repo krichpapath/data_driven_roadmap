@@ -1,0 +1,19 @@
+Foreign AI Investment Surge Forces Major Rewrite of Thailand Digital Roadmap
+
+BANGKOK - Thailand's digital-industry roadmap team has begun a formal revision after a sudden wave of foreign AI investment, data-centre demand, and new data-sovereignty requirements overwhelmed assumptions in the 2022-2030 plan. Officials said the 2024 review underestimated how quickly generative AI platforms, cloud infrastructure, and cross-border data services would reshape the sector.
+
+The emergency directly threatens technology, scientific research, and engineering innovation across artificial intelligence, Thai natural language processing, blockchain, cybersecurity, financial security, and quantum computing. Roadmap managers said the shock invalidates several medium-term assumptions at once and forces an immediate redesign of AI infrastructure, digital sandbox governance, and national-data architecture.
+
+Three international cloud and AI providers announced large investment packages tied to Thai-language foundation models, regional data exchanges, and high-performance computing capacity. The commitments could strengthen Thailand's position in ASEAN, but they also require urgent decisions on national data management, public-sector API standards, cybersecurity certification, and local workforce supply.
+
+Regulators issued a strict data-governance order requiring sensitive public datasets used in AI training to remain on certified domestic infrastructure. The legal compliance crisis now centres on law, regulation, courts, and legal compliance: agencies must publish access rules, legal compliance records, model-audit logs, and breach-response plans before joining cross-border CLMV or ASEAN data-linkage pilots.
+
+Legal experts said the order represents a severe break from the roadmap's earlier compliance assumptions. They warned that courts, regulators, and procurement agencies may block AI pilots that cannot prove consent, traceability, cybersecurity controls, and lawful cross-border data processing.
+
+Electricity planners warned that proposed AI data centres could consume far more power than existing digital-industry forecasts allowed. Provincial officials asked for emergency rules on water use, renewable energy sourcing, environmental permits, and local benefit sharing before approving additional sites.
+
+Universities and industry groups said the workforce plan is no longer adequate. Demand for technology engineers, scientific research specialists, engineering innovation teams, cybersecurity specialists, AI safety reviewers, and Thai NLP researchers has accelerated sharply, while routine back-office roles are being automated faster than expected.
+
+Cabinet officials said the roadmap must be rewritten around four urgent priorities: attracting foreign investment without losing control of national data, scaling AI use across industries, building systems that can operate internationally, and planning for workforce displacement caused by AI.
+
+Analysts said the combined political, economic, technological, legal, environmental, and social pressure makes a full roadmap revision unavoidable. They said a minor adjustment would not be enough because the original roadmap no longer matches the scale, speed, or risk of the new digital-industry environment.

@@ -1,0 +1,13 @@
+Thai Digital Roadmap Office Holds Routine CLMV Data Workshop
+
+BANGKOK - Thailand's digital-industry roadmap office held a scheduled workshop this week with universities, software firms, and public agencies to review progress on data-linkage planning for the CLMV region. Officials said the meeting followed the medium-term roadmap timetable and did not introduce new funding rules, new compliance obligations, or changes to national digital targets.
+
+Participants discussed practical issues in cross-border data sharing, including metadata formats, API documentation, Thai-language data quality, and training needs for data engineers. Several university representatives said the discussion was useful but mostly repeated priorities already listed in the 2024 roadmap review: better national data management, fair access to information, and steady preparation for regional connectivity.
+
+The Digital Economy Promotion Agency said existing sandbox projects for public data exchange will continue under their current budgets. No additional procurement package was announced. Officials said the next step is a small technical checklist for participating agencies, not a new regulatory framework or a major infrastructure build-out.
+
+Industry groups welcomed the update but described it as an ordinary coordination exercise. Software vendors said demand for data-management services remains stable, while hiring plans for data analysts and cloud engineers are broadly unchanged from earlier forecasts. No major investor, platform operator, or hyperscale provider announced a change in Thailand strategy after the meeting.
+
+Cybersecurity specialists attending the workshop recommended that agencies continue routine penetration testing and access-control reviews before any regional pilot expands. They said the recommendation is standard practice for public-sector data projects and does not signal a new threat level.
+
+Analysts said the workshop confirms that the digital-industry roadmap remains on its current path. The themes are relevant to the 2024 review, but the event contains no shock that would require a roadmap adjustment.
