@@ -54,16 +54,18 @@ PESTLE_HYPOTHESIS_TEMPLATE = "This news text is primarily about {}."
 # Reason: zero-shot NLI force-routes every sentence to one of six labels even
 # when none fit (e.g. movie / sports news → "Social" by default). Without a
 # floor, off-domain articles produce active drivers and inflate severity.
-# Threshold chosen at the lower edge of the typical in-domain confidence
-# distribution observed in tools/diagnostic_output (in-domain top score
-# usually ≥0.50; off-domain typically clusters 0.30–0.45).
-PESTLE_MIN_CONFIDENCE = 0.45
+# Threshold chosen above the weak/off-domain band observed in diagnostics.
+# Movie/sports-style articles can still receive a forced PESTLE label around
+# 0.45-0.62; requiring 0.65 keeps those from becoming active drivers.
+PESTLE_MIN_CONFIDENCE = 0.65
 
 # ── Sentiment model per PESTLE driver ─────────────────────────────────────────
 # Maps each PESTLE label → HuggingFace model + how to read its output labels.
 #   label_map         : raw model label → canonical {positive, negative, neutral}
-#   neutral_threshold : binary models only — if confidence < threshold, coerce
-#                       the prediction to "neutral" (synthesizes a neutral class).
+#   neutral_threshold : if a positive/negative prediction is below this
+#                       confidence floor, coerce it to "neutral". For binary
+#                       models this synthesizes a neutral class; for 3-class
+#                       models it damps weak non-neutral calls.
 #
 # Reason for each pick (proof in CHANGELOG):
 #   • SiEBERT (siebert/sentiment-roberta-large-english) — Hartmann et al. 2023,
@@ -94,6 +96,7 @@ PESTLE_MODELS = {
         "model_id":  "ProsusAI/finbert",
         "max_length": 512,
         "label_map": {"positive": "positive", "negative": "negative", "neutral": "neutral"},
+        "neutral_threshold": 0.98,
     },
     # Social — public-opinion / labour / demographics prose. SiEBERT's training
     # mix (Yelp, Amazon, IMDb, Twitter, news) covers this register.
@@ -170,20 +173,19 @@ KEYPOINTS_RELEVANCE_GAIN = 1.4
 #   x=1 (moderate) if τ_low ≤ M < τ_high
 #   x=2 (major)    if M ≥ τ_high
 #
-# Recalibrated 2026-04-27 after the relevance-gain rescale and per-driver
-# sentiment-model swap. With raw-cosine relevance × gain 2.0 and SiEBERT/
-# FinBERT/ClimateBERT confidences typically 0.70–0.99, post-formula
-# magnitudes cluster in [0.20, 0.55]. Old τ_low (0.30) was rejecting genuine
-# moderate-impact picks. New bands keep boilerplate at x=0 (mag < ~0.18) but
-# admit moderate journalistic signal at x=1.
+# Recalibrated 2026-04-29 after diagnostics showed two regimes:
+# semantic relevance often lands around 0.30-0.60, while fallback/off-domain
+# cases can saturate near 1.0. These bands let real semantic evidence reach
+# Adjust, while the stricter PESTLE gate and FinBERT neutral floor keep routine
+# or unrelated news from becoming active drivers.
 TOLERANCE_BANDS = {
-    "Political":     {"low": 0.22, "high": 0.65},
-    "Economic":      {"low": 0.22, "high": 0.65},
-    "Social":        {"low": 0.22, "high": 0.65},
-    "Technological": {"low": 0.22, "high": 0.65},
-    "Legal":         {"low": 0.22, "high": 0.65},
-    "Environmental": {"low": 0.20, "high": 0.55},  # ClimateBERT confidence skews lower
-    "default":       {"low": 0.22, "high": 0.65},
+    "Political":     {"low": 0.35, "high": 0.60},
+    "Economic":      {"low": 0.35, "high": 0.60},
+    "Social":        {"low": 0.35, "high": 0.60},
+    "Technological": {"low": 0.35, "high": 0.60},
+    "Legal":         {"low": 0.35, "high": 0.60},
+    "Environmental": {"low": 0.35, "high": 0.60},
+    "default":       {"low": 0.35, "high": 0.60},
 }
 
 # Base driver weights W_i (used in Step 4).

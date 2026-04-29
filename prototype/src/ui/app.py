@@ -225,12 +225,15 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int) 
         sentiment_raw = classify_sentiment(context, pestle["label"])
         sentiment = _normalise_sentiment(sentiment_raw, pestle["label"])
 
-        contribution = point_impact(
-            sentiment["score"],
-            sentiment["confidence"],
-            pestle["confidence"],
-            relevance,
-        )
+        if pestle["label"] in PESTLE_ORDER:
+            contribution = point_impact(
+                sentiment["score"],
+                sentiment["confidence"],
+                pestle["confidence"],
+                relevance,
+            )
+        else:
+            contribution = 0.0
 
         signed_contribution = contribution
         if sentiment["score"] < 0:

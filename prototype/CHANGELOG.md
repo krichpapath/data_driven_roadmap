@@ -9,6 +9,38 @@ Dates use ISO `YYYY-MM-DD`.
 
 ## [Unreleased]
 
+### 2026-04-29 — Impact tuning was too sensitive
+
+**Why**: Unrelated news, such as movie news, could be pushed to **Revise**. The
+main cause was not the DDRM formula. A weak PESTLE match could still become an
+active driver, and one active driver can carry a lot of weight in the final
+score.
+
+**Changed**:
+- `src/config.py` — raised the PESTLE confidence gate from `0.45` to `0.65`.
+  Weak matches are now marked `Unclassified` and ignored by the impact score.
+- `src/config.py` — added a neutral floor for FinBERT so weak economic tone is
+  less likely to count as positive or negative impact.
+- `src/config.py` — retuned tolerance bands to `low=0.35`, `high=0.60`.
+  Moderate evidence can still reach **Adjust**, but ordinary signals are less
+  likely to jump to **Revise**.
+- `src/ui/app.py` — `Unclassified` evidence now shows impact `0.0` in the UI,
+  matching the actual DDRM aggregation.
+- `src/core/keypoints.py` — stopped using TF-IDF fallback relevance for DDRM
+  scoring. If `sentence-transformers` is missing, the app now shows a clear
+  install/restart error instead of producing an overconfident result.
+
+**Result**:
+- Movie-style unrelated news now stays **Maintain**.
+- `news_04` no longer becomes **Revise** because of a TF-IDF fallback score of
+  `1.0` on a routine sentence.
+- Validation set now lands as intended:
+  `news_01-03` → **Adjust**,
+  `news_04-05` → **Maintain**,
+  `news_06-07` → **Revise**.
+
+**Formula chain untouched**. This only changes gates and tuning values.
+
 ### 2026-04-27 — Tolerance bands + relevance gain + active-driver fix (Phase 1 / F + G + rescale)
 
 **Why**: After model swap, news_01 + news_03 still failed Adjust because raw PESTLE-cosine relevance clustered in [0.15, 0.45], capping magnitudes below τ_low. news_03 also lost to active-driver dilution: x=0 picks on wrong drivers ate w_star mass.

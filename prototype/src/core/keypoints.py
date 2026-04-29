@@ -18,9 +18,9 @@
 # to be fed to the PESTLE / sentiment classifiers so they see the surrounding
 # discourse, while the UI continues to display the bare sentence.
 #
-# Falls back to a sentence-level TF-IDF score if sentence-transformers is missing.
-# In the fallback path, relevance uses rank-normalized scores (same as before)
-# because PESTLE-similarity requires embeddings.
+# Requires sentence-transformers for DDRM impact scoring. Older versions used
+# a TF-IDF fallback, but that rank-normalized score is not driver relevance and
+# can overstate impact.
 
 import re
 from typing import List, Tuple, Dict, Any
@@ -63,6 +63,15 @@ try:
     from config import KEYPOINTS_RELEVANCE_GAIN
 except ImportError:
     KEYPOINTS_RELEVANCE_GAIN = 1.0
+
+
+def _raise_semantic_required_error(exc: Exception):
+    raise RuntimeError(
+        "Semantic keypoint relevance is unavailable. Install the project "
+        "requirements in this Python environment, especially "
+        "`sentence-transformers`, then restart the app. The TF-IDF fallback is "
+        "not used for DDRM impact scoring because it can overstate relevance."
+    ) from exc
 
 
 _ABBREVS = (
@@ -230,18 +239,14 @@ def extract_keypoints_rich(
         picked_idx = list(range(len(sentences)))
         try:
             composite, _, relevance_per_sent = _score_semantic(sentences)
-        except Exception:
-            using_semantic = False
-            composite = _tfidf_fallback_scores(sentences)
+        except Exception as exc:
+            _raise_semantic_required_error(exc)
     else:
         try:
             composite, sent_emb, relevance_per_sent = _score_semantic(sentences)
             picked_idx = _mmr_select(composite, sent_emb, max_points)
-        except Exception:
-            import numpy as np
-            using_semantic = False
-            composite = _tfidf_fallback_scores(sentences)
-            picked_idx = np.argsort(composite)[::-1][:max_points].tolist()
+        except Exception as exc:
+            _raise_semantic_required_error(exc)
 
     picked_sorted = sorted(picked_idx)
 
