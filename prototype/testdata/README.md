@@ -27,6 +27,12 @@ Do not redistribute as real reporting.
 | `news_09_accelerated_industry_ai_sandbox_adjust.txt` | Technological, Economic, Legal, Social | Adjust |
 | `news_10_foreign_ai_investment_data_rules_revise.txt` | Political, Economic, Technological, Legal, Environmental, Social | Revise |
 
+## Roadmap sample
+
+`industrial_digital_roadmap_sample.json` is a small exported-roadmap fixture for
+testing roadmap matching and guidance. Paste it into the app's optional
+"Roadmap JSON" field, then run any news article to see matched roadmap items.
+
 ## How to use
 
 1. Open the keypoints lab: `python src/ui/keypoints_lab.py`. Paste a file's

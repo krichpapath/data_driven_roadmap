@@ -17,6 +17,8 @@ from core.keypoints import extract_keypoints, extract_keypoints_rich
 from core.pestle import classify_pestle
 from core.sentiment import classify_sentiment
 from core.impact import aggregate_by_pestle, overall_impact, ddrm_status, point_impact
+from core.roadmap_matcher import match_roadmap_items
+from core.guidance import generate_guidance
 from config import KEYPOINTS_MAX, PESTLE_WEIGHTS, DDRM_THRESHOLDS
 
 
@@ -207,7 +209,17 @@ def _load_input(input_text: str, input_mode: str, input_file=None) -> tuple[str,
 # Pipeline
 # ─────────────────────────────────────────────────────────────
 
-def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int) -> dict:
+def _parse_roadmap_json(roadmap_json: str) -> dict | None:
+    text = (roadmap_json or "").strip()
+    if not text:
+        return None
+    roadmap = json.loads(text)
+    if not all(k in roadmap for k in ("categories", "bands", "items")):
+        raise ValueError("Roadmap JSON must include categories, bands, and items.")
+    return roadmap
+
+
+def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str = "") -> dict:
     title, text = _load_input(input_text, input_mode, input_file)
 
     keypoints = extract_keypoints_rich(text, max_points=int(max_points))
@@ -274,14 +286,25 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int) 
     severity = overall_impact(impact_points)
     verdict, reason = ddrm_status(severity)
 
-    return {
+    result = {
         "title": title,
         "verdict": verdict,
         "severity": severity,
         "reason": reason,
         "by_pestle": by_pestle,
         "evidence": evidence,
+        "roadmap_matches": [],
+        "guidance": {},
     }
+
+    roadmap = _parse_roadmap_json(roadmap_json)
+    if roadmap:
+        matches = match_roadmap_items(result, roadmap)
+        result["roadmap_title"] = roadmap.get("title") or "Untitled roadmap"
+        result["roadmap_matches"] = matches
+        result["guidance"] = generate_guidance(result, matches)
+
+    return result
 
 
 # ─────────────────────────────────────────────────────────────
@@ -437,6 +460,79 @@ def build_evidence_df(result: dict) -> pd.DataFrame:
         key=lambda s: s.abs(),
         ascending=False,
     ).reset_index(drop=True)
+
+
+def build_match_df(result: dict) -> pd.DataFrame:
+    rows = []
+    for idx, match in enumerate(result.get("roadmap_matches", []), 1):
+        rows.append({
+            "#": idx,
+            "Roadmap Item": match.get("item_name", ""),
+            "Layer": match.get("layer", ""),
+            "Time Bands": " / ".join(match.get("time_bands", [])),
+            "Matched Drivers": ", ".join(match.get("matched_drivers", [])),
+            "Match Score": round(_safe_float(match.get("match_score")), 3),
+            "Reason": match.get("reason", ""),
+        })
+
+    if not rows:
+        return pd.DataFrame(columns=[
+            "#", "Roadmap Item", "Layer", "Time Bands",
+            "Matched Drivers", "Match Score", "Reason",
+        ])
+
+    return pd.DataFrame(rows)
+
+
+def build_guidance_md(result: dict) -> str:
+    guidance = result.get("guidance") or {}
+    if not guidance:
+        return (
+            "## Roadmap guidance\n"
+            "Paste exported roadmap JSON to match active PESTLE drivers against roadmap items."
+        )
+
+    lines = [
+        "## Roadmap guidance",
+        "",
+        guidance.get("summary", ""),
+        "",
+        f"**Recommended action:** {guidance.get('recommended_action', '')}",
+        f"**Advisor:** {guidance.get('llm_provider', 'deterministic')}"
+        + (f" ({guidance.get('llm_model')})" if guidance.get("llm_model") else ""),
+        "",
+    ]
+
+    if guidance.get("llm_error"):
+        lines.extend([
+            "**LLM fallback:** OpenRouter call failed, so deterministic guidance is shown.",
+            f"`{guidance.get('llm_error')}`",
+            "",
+        ])
+
+    item_guidance = guidance.get("item_guidance", [])
+    if item_guidance:
+        lines.append("### Matched item actions")
+        lines.append("")
+        for item in item_guidance:
+            bands = " / ".join(item.get("time_bands", [])) or "current band"
+            drivers = ", ".join(item.get("matched_drivers", []))
+            lines.append(f"**{item.get('item_name', '')}**  ")
+            lines.append(f"Layer: `{item.get('layer', '')}` · Time: `{bands}` · Driver: `{drivers}`  ")
+            lines.append(item.get("suggested_change", ""))
+            basis = item.get("evidence_basis")
+            if basis:
+                if len(basis) > 240:
+                    basis = basis[:240].rstrip() + "..."
+                lines.append(f"Evidence: {basis}")
+            lines.append("")
+
+    questions = guidance.get("questions_for_humans", [])
+    if questions:
+        lines.append("### Human review questions")
+        lines.extend(f"- {q}" for q in questions)
+
+    return "\n".join(lines).strip()
 
 
 def _format_top2(top2) -> str:
@@ -597,12 +693,14 @@ def blank_outputs(message: str):
         "## Why this result\nNo analysis yet.",
         pd.DataFrame(),
         pd.DataFrame(),
+        pd.DataFrame(),
+        "## Roadmap guidance\nNo roadmap JSON provided.",
         "## Audit summary\nNo analysis yet.",
         "{}",
     )
 
 
-def analyse(input_text: str, input_mode: str, input_file, max_points: int):
+def analyse(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str):
     if input_mode == "Text file":
         if not input_file:
             return blank_outputs("Upload a text file to begin.")
@@ -610,7 +708,7 @@ def analyse(input_text: str, input_mode: str, input_file, max_points: int):
         return blank_outputs("Provide a URL or text to begin.")
 
     try:
-        result = run_pipeline(input_text, input_mode, input_file, max_points)
+        result = run_pipeline(input_text, input_mode, input_file, max_points, roadmap_json)
 
         decision_md = build_decision_md(result)
         action_md = build_action_md(result)
@@ -620,6 +718,8 @@ def analyse(input_text: str, input_mode: str, input_file, max_points: int):
         reasons_md = build_top_reasons_md(result)
         keyword_df = build_keyword_df(result)
         evidence_df = build_evidence_df(result)
+        match_df = build_match_df(result)
+        guidance_md = build_guidance_md(result)
         audit_md = build_audit_md(result, max_points)
 
         json_out = json.dumps(result, indent=2, ensure_ascii=False)
@@ -633,6 +733,8 @@ def analyse(input_text: str, input_mode: str, input_file, max_points: int):
             reasons_md,
             keyword_df,
             evidence_df,
+            match_df,
+            guidance_md,
             audit_md,
             json_out,
         )
@@ -696,6 +798,12 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
                 label="Evidence points to review",
             )
 
+            roadmap_json = gr.Textbox(
+                label="Roadmap JSON (optional)",
+                lines=8,
+                placeholder="Paste JSON exported from DDRM builder to match impacted PESTLE drivers to roadmap items.",
+            )
+
             run_btn = gr.Button(
                 "Assess roadmap impact",
                 variant="primary",
@@ -734,6 +842,14 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
                 label="Traceable evidence table",
             )
 
+        with gr.Tab("Roadmap"):
+            match_table = gr.Dataframe(
+                interactive=False,
+                wrap=True,
+                label="Roadmap items matched by active PESTLE drivers",
+            )
+            guidance_md = gr.Markdown("## Roadmap guidance\nNo roadmap JSON provided.")
+
         with gr.Tab("Export"):
             audit_md = gr.Markdown("## Audit summary\nNo analysis yet.")
             json_out = gr.Code(
@@ -749,7 +865,7 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
 
     run_btn.click(
         fn=analyse,
-        inputs=[input_box, input_mode, input_file, max_points],
+        inputs=[input_box, input_mode, input_file, max_points, roadmap_json],
         outputs=[
             decision_md,
             action_md,
@@ -759,6 +875,8 @@ with gr.Blocks(title="Roadmap Impact Review") as demo:
             reasons_md,
             keyword_table,
             evidence_table,
+            match_table,
+            guidance_md,
             audit_md,
             json_out,
         ],

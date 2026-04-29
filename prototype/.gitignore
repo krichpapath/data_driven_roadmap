@@ -6,6 +6,7 @@ __pycache__/
 .venv/
 venv/
 env/
+.env
 
 # Diagnostic / generated artifacts
 tools/diagnostic_output/
