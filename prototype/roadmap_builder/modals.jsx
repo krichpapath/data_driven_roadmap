@@ -34,12 +34,15 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
   const [bandIds, setBandIds] = React.useState([]);
   const [pestle, setPestle] = React.useState([]);
   const [desc, setDesc] = React.useState("");
+  const [err, setErr] = React.useState("");
 
   React.useEffect(() => {
     if (!open) return;
+    setErr("");
     if (item) {
       setName(item.name); setCatId(item.catId);
-      setBandIds([...item.bands]); setPestle([...(item.pestle || [])]);
+      setBandIds(Array.isArray(item.bands) ? [...item.bands] : []);
+      setPestle([...(item.pestle || [])]);
       setDesc(item.description || "");
     } else {
       setName("");
@@ -58,6 +61,14 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
 
   const save = () => {
     if (!name.trim()) return;
+    if (!categories.length) {
+      setErr("Add at least one layer before saving an item.");
+      return;
+    }
+    if (!bands.length) {
+      setErr("Add at least one time band before saving an item.");
+      return;
+    }
     onSave({
       id: item?.id || `i_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
       name: name.trim(),
@@ -178,6 +189,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
               onChange={e => setDesc(e.target.value)}
             />
           </div>
+          {err && <div className="field-help" style={{ color: "var(--c-rose)" }}>⚠ {err}</div>}
         </div>
 
         <div className="modal-foot">
@@ -236,10 +248,56 @@ function ImportModal({ open, onClose, onLoad }) {
   const [text, setText] = React.useState("");
   const [err, setErr] = React.useState("");
   if (!open) return null;
+  const validateRoadmap = (roadmap) => {
+    if (!roadmap || typeof roadmap !== "object" || Array.isArray(roadmap)) {
+      throw new Error("Roadmap JSON must be an object.");
+    }
+    if (!Array.isArray(roadmap.categories)) {
+      throw new Error("Roadmap JSON must include categories as an array.");
+    }
+    if (!Array.isArray(roadmap.bands)) {
+      throw new Error("Roadmap JSON must include bands as an array.");
+    }
+    if (!Array.isArray(roadmap.items)) {
+      throw new Error("Roadmap JSON must include items as an array.");
+    }
+    if (roadmap.categories.length < 1) {
+      throw new Error("Roadmap needs at least one layer.");
+    }
+    if (roadmap.bands.length < 1) {
+      throw new Error("Roadmap needs at least one time band.");
+    }
+    roadmap.categories.forEach((cat, idx) => {
+      if (!cat || typeof cat !== "object" || !String(cat.id || "").trim() || !String(cat.label || "").trim()) {
+        throw new Error(`Layer ${idx + 1} must include id and label.`);
+      }
+    });
+    roadmap.bands.forEach((band, idx) => {
+      if (!band || typeof band !== "object" || !String(band.id || "").trim() || !String(band.label || "").trim()) {
+        throw new Error(`Time band ${idx + 1} must include id and label.`);
+      }
+    });
+    const categoryIds = new Set(roadmap.categories.map(cat => cat.id));
+    const bandIds = new Set(roadmap.bands.map(band => band.id));
+    roadmap.items.forEach((item, idx) => {
+      if (!item || typeof item !== "object" || !String(item.name || "").trim()) {
+        throw new Error(`Item ${idx + 1} must include a name.`);
+      }
+      if (!String(item.catId || "").trim() || !categoryIds.has(item.catId)) {
+        throw new Error(`Item ${idx + 1} must reference an existing layer.`);
+      }
+      if (!Array.isArray(item.bands) || item.bands.length < 1) {
+        throw new Error(`Item ${idx + 1} must include at least one time band.`);
+      }
+      if (!item.bands.every(bandId => bandIds.has(bandId))) {
+        throw new Error(`Item ${idx + 1} must reference existing time bands.`);
+      }
+    });
+  };
   const tryLoad = () => {
     try {
       const parsed = JSON.parse(text);
-      if (!parsed.categories || !parsed.bands || !parsed.items) throw new Error("Missing required fields (categories, bands, items).");
+      validateRoadmap(parsed);
       onLoad(parsed);
     } catch (e) {
       setErr(e.message);
@@ -281,10 +339,12 @@ function ImportModal({ open, onClose, onLoad }) {
 function StructureModal({ open, state, onSave, onClose }) {
   const [cats, setCats] = React.useState([]);
   const [bands, setBands] = React.useState([]);
+  const [err, setErr] = React.useState("");
   React.useEffect(() => {
     if (!open) return;
     setCats(state.categories.map(c => ({ ...c })));
     setBands(state.bands.map(b => ({ ...b })));
+    setErr("");
   }, [open, state]);
 
   if (!open) return null;
@@ -293,8 +353,30 @@ function StructureModal({ open, state, onSave, onClose }) {
   const updateBand = (id, patch) => setBands(bands.map(b => b.id === id ? { ...b, ...patch } : b));
   const addCat = () => setCats([...cats, { id: `l_${Date.now()}`, label: "New layer", sub: "", color: PALETTE[cats.length % PALETTE.length], help: "" }]);
   const addBand = () => setBands([...bands, { id: `b_${Date.now()}`, label: "New band", tag: "", color: PALETTE[bands.length % PALETTE.length] }]);
-  const delCat = id => setCats(cats.filter(c => c.id !== id));
-  const delBand = id => setBands(bands.filter(b => b.id !== id));
+  const delCat = id => {
+    if (cats.length <= 1) {
+      setErr("Roadmap needs at least one layer.");
+      return;
+    }
+    setErr("");
+    setCats(cats.filter(c => c.id !== id));
+  };
+  const delBand = id => {
+    if (bands.length <= 1) {
+      setErr("Roadmap needs at least one time band.");
+      return;
+    }
+    setErr("");
+    setBands(bands.filter(b => b.id !== id));
+  };
+  const canSave = cats.length > 0 && bands.length > 0;
+  const saveStructure = () => {
+    if (!canSave) {
+      setErr("Roadmap needs at least one layer and one time band.");
+      return;
+    }
+    onSave(cats, bands);
+  };
 
   return (
     <div className="backdrop on" onClick={onClose}>
@@ -335,7 +417,12 @@ function StructureModal({ open, state, onSave, onClose }) {
                         style={{ width: 32, height: 28, border: "1px solid var(--line)", borderRadius: 6, padding: 2, background: resolveToHex(c.color), cursor: "pointer" }}
                         onChange={e => updateCat(c.id, { color: e.target.value })}
                       />
-                      <button className="btn btn-ghost btn-icon" onClick={() => delCat(c.id)}><Icon name="trash" size={13} /></button>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => delCat(c.id)}
+                        disabled={cats.length <= 1}
+                        title={cats.length <= 1 ? "Roadmap needs at least one layer" : "Delete layer"}
+                      ><Icon name="trash" size={13} /></button>
                     </div>
                     <input
                       className="field-input"
@@ -374,7 +461,12 @@ function StructureModal({ open, state, onSave, onClose }) {
                         style={{ width: 32, height: 28, border: "1px solid var(--line)", borderRadius: 6, padding: 2, background: resolveToHex(b.color), cursor: "pointer" }}
                         onChange={e => updateBand(b.id, { color: e.target.value })}
                       />
-                      <button className="btn btn-ghost btn-icon" onClick={() => delBand(b.id)}><Icon name="trash" size={13} /></button>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        onClick={() => delBand(b.id)}
+                        disabled={bands.length <= 1}
+                        title={bands.length <= 1 ? "Roadmap needs at least one time band" : "Delete time band"}
+                      ><Icon name="trash" size={13} /></button>
                     </div>
                     <input
                       className="field-input"
@@ -390,8 +482,9 @@ function StructureModal({ open, state, onSave, onClose }) {
           </div>
         </div>
         <div className="modal-foot">
+          {err && <span className="field-help left" style={{ color: "var(--c-rose)", marginRight: "auto" }}>⚠ {err}</span>}
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-accent" onClick={() => onSave(cats, bands)}>Save structure</button>
+          <button className="btn btn-accent" onClick={saveStructure} disabled={!canSave}>Save structure</button>
         </div>
       </div>
     </div>

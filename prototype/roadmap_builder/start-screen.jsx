@@ -26,7 +26,7 @@ function StartScreen({ onStart, onImport }) {
             <div>
               <span className="start-eyebrow">Data-Driven Roadmaps · for everyone</span>
               <h1 className="start-title">
-                Plan the next decade<br/>
+                Start a roadmap<br/>
                 without the <em>jargon</em>.
               </h1>
               <p className="start-lede">
@@ -176,7 +176,7 @@ function TemplatePicker({ open, onClose, onPick }) {
       <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <div className="modal-title">Choose a starting template</div>
+            <div className="modal-title">Start a roadmap from a template</div>
             <div className="modal-sub">Templates ship with sensible layers and time bands. Everything is editable once you open it.</div>
           </div>
           <button className="modal-close" onClick={onClose}><Icon name="x" size={14} /></button>

@@ -14,6 +14,36 @@ function evidenceSnippet(text) {
   return text.length > 220 ? text.slice(0, 220).trim() + "..." : text;
 }
 
+async function readAdvisorError(res) {
+  const fallback = `Advisor API returned HTTP ${res.status}.`;
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text().catch(() => "");
+    return text.trim() || fallback;
+  }
+  const data = await res.json().catch(() => null);
+  const detail = data?.detail;
+  if (Array.isArray(detail)) {
+    return detail.map(item => item.msg || String(item)).join(" ");
+  }
+  if (detail) return String(detail);
+  return fallback;
+}
+
+function friendlyAdvisorError(error, status) {
+  const raw = error?.message || String(error || "");
+  if (raw === "Failed to fetch" || raw.includes("NetworkError")) {
+    return "Advisor API is not running. Start `python src/api/roadmap_api.py` and retry.";
+  }
+  if (status === 400) {
+    return `Input needs more usable news text. ${raw}`;
+  }
+  if (status === 503) {
+    return `Impact model is not ready. ${raw}`;
+  }
+  return raw || "Advisor request failed.";
+}
+
 function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [apiUrl, setApiUrl] = React.useState(() => localStorage.getItem(ADVISOR_API_KEY) || DEFAULT_ADVISOR_API);
   const [inputMode, setInputMode] = React.useState("Text");
@@ -60,13 +90,18 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
           roadmap: state
         })
       });
+      if (!res.ok) {
+        const message = await readAdvisorError(res);
+        const err = new Error(message);
+        err.status = res.status;
+        throw err;
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
       setResult(data.result);
       const ids = new Set((data.result.guidance?.item_guidance || []).map(i => i.item_id));
       setSelected(ids);
     } catch (e) {
-      setError(e.message || String(e));
+      setError(friendlyAdvisorError(e, e.status));
     } finally {
       setBusy(false);
     }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,8 +55,12 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
             roadmap_json=json.dumps(req.roadmap, ensure_ascii=False),
         )
         return RecommendResponse(result=result)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Advisor failed unexpectedly. Check server logs.") from exc
 
 
 if __name__ == "__main__":
