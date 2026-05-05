@@ -94,6 +94,12 @@ input, textarea, select { font: inherit; color: inherit; }
   color: var(--ink-muted);
   margin-left: 4px;
 }
+.brand-button {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+.brand-button:hover .brand-name { color: var(--accent-ink); }
 
 .title-input {
   background: transparent; border: none; outline: none;
@@ -112,6 +118,13 @@ input, textarea, select { font: inherit; color: inherit; }
 .crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); }
 .crumbs .sep { color: var(--ink-faint); }
 .crumbs .here { color: var(--ink); font-weight: 500; }
+.crumb-link {
+  border: none;
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 13px;
+}
+.crumb-link:hover { color: var(--accent-ink); }
 
 /* ── Buttons ────────────────────────────────────────────── */
 .btn {
@@ -142,6 +155,14 @@ input, textarea, select { font: inherit; color: inherit; }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn-lg { padding: 10px 16px; font-size: 14px; }
 .btn-icon { padding: 6px 8px; }
+.btn.danger {
+  color: var(--c-rose);
+  border-color: color-mix(in oklch, var(--c-rose) 28%, white);
+}
+.btn.danger:hover {
+  background: color-mix(in oklch, var(--c-rose) 8%, white);
+  border-color: color-mix(in oklch, var(--c-rose) 42%, white);
+}
 
 .kbd {
   display: inline-block;
@@ -632,6 +653,188 @@ input, textarea, select { font: inherit; color: inherit; }
   padding: 14px 28px;
   display: flex; justify-content: space-between; align-items: center;
   font-size: 12px; color: var(--ink-faint);
+}
+
+/* Roadmap list */
+.list-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--bg);
+}
+.list-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.list-main {
+  width: min(1080px, calc(100vw - 56px));
+  margin: 0 auto;
+  padding: 38px 0 70px;
+}
+.list-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.list-header .eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 8px;
+}
+.list-header h1 {
+  font-family: 'IBM Plex Serif', serif;
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 500;
+}
+.list-header p {
+  margin-top: 8px;
+  color: var(--ink-muted);
+}
+.list-count {
+  min-width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--surface);
+  color: var(--accent-ink);
+  font: 600 16px 'JetBrains Mono', monospace;
+}
+.roadmap-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.roadmap-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 18px;
+  padding: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+.roadmap-row-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+.roadmap-row-main h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.roadmap-row-main p {
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--ink-muted);
+}
+.roadmap-row-main span {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--ink-faint);
+}
+.roadmap-row-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.roadmap-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.empty-list {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  text-align: center;
+  background: var(--surface);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  color: var(--ink-muted);
+}
+.empty-list h2 {
+  font-family: 'IBM Plex Serif', serif;
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.route-error-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: var(--bg);
+}
+.route-error-card {
+  width: min(460px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  text-align: center;
+}
+.route-error-icon {
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 12px;
+  border-radius: var(--r-md);
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.route-error-card h1 {
+  font-family: 'IBM Plex Serif', serif;
+  font-size: 25px;
+  font-weight: 500;
+}
+.route-error-card p {
+  margin: 8px 0 18px;
+  color: var(--ink-muted);
+}
+.route-error-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in oklch, var(--c-rose) 35%, white);
+  border-radius: var(--r-md);
+  background: color-mix(in oklch, var(--c-rose) 9%, white);
+  color: oklch(0.42 0.13 20);
+  font-size: 12.5px;
 }
 
 /* ── Modal ─────────────────────────────────────────────── */

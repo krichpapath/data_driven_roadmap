@@ -10,6 +10,7 @@ env/
 
 # Diagnostic / generated artifacts
 tools/diagnostic_output/
+.edge-*/
 
 # Editor / OS
 .vscode/
