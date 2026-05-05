@@ -1,23 +1,36 @@
 # =============================================================================
 # .gitignore for the Roadmapping repo
 # =============================================================================
-# Strategy: only the prototype/ folder (code + assets + README + requirements)
-# should be tracked. Research papers, university reports, runtime logs, virtual
-# environments, and the archive of stale code stay LOCAL ONLY.
+# Strategy: track code + assets + README + requirements at the repo root.
+# Research papers, university reports, runtime logs, virtual envs, large
+# binaries, and stale code snapshots stay LOCAL ONLY.
 # =============================================================================
 
-# --- Top-level folders that must NOT be pushed ------------------------------
+# --- Local-only folders -----------------------------------------------------
 # Internal university reports, drafts, .tex sources, templates
 docs/
+document/
 
 # Third-party research papers (copyright concerns)
 references/
 
-# Stale code snapshots and large unused virtualenv from before the cleanup
+# Stale code snapshots from before the cleanup
 archive/
 
 # Runtime output (may contain personal data)
 logs/
+
+# Scratch / working artifacts
+tmp/
+
+# Diagnostic dumps from tools/
+tools/diagnostic_output/
+
+# Browser-automation profile dirs created by scripts
+.edge-*/
+
+# Research PDFs land at the repo root by convention; never push them
+*.pdf
 
 # --- Python virtual environments --------------------------------------------
 venv/
