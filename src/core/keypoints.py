@@ -67,10 +67,11 @@ except ImportError:
 
 def _raise_semantic_required_error(exc: Exception):
     raise RuntimeError(
-        "Semantic keypoint relevance is unavailable. Install the project "
-        "requirements in this Python environment, especially "
-        "`sentence-transformers`, then restart the app. The TF-IDF fallback is "
-        "not used for DDRM impact scoring because it can overstate relevance."
+        "Semantic keypoint model is unavailable or not cached: "
+        f"{KEYPOINTS_EMBED_MODEL}. Run once with network access so "
+        "SentenceTransformer can download the model, or pre-cache it in this "
+        "Python environment, then restart the app. TF-IDF fallback is disabled "
+        "for DDRM impact scoring because it can overstate relevance."
     ) from exc
 
 
