@@ -1,4 +1,36 @@
 /* global React, Icon, InfoDot, GLOSSARY, PESTLE, PALETTE */
+
+// Generate a collision-resistant id for a new entity.
+// Combines timestamp (ordering) with random suffix (uniqueness within the same ms).
+function makeId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+const OPTIONAL_TAG_STYLE = {
+  marginLeft: "auto",
+  fontSize: 11,
+  color: "var(--ink-faint)",
+  fontWeight: 400
+};
+
+// Inline style for the small <input type="color"> swatch in StructureModal.
+// Background is overwritten per-render with the resolved hex.
+const COLOR_SWATCH_BASE_STYLE = {
+  width: 32,
+  height: 28,
+  border: "1px solid var(--line)",
+  borderRadius: 6,
+  padding: 2,
+  cursor: "pointer"
+};
+
+const STRUCTURE_CARD_STYLE = {
+  border: "1px solid var(--line)",
+  borderRadius: "var(--r-md)",
+  padding: 10,
+  background: "var(--surface-2)"
+};
+
 // Resolve a CSS color (incl. var(--…) and oklch()) into a hex string
 // suitable for <input type="color"> (which requires #rrggbb).
 function resolveToHex(input) {
@@ -72,7 +104,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
       return;
     }
     onSave({
-      id: item?.id || `i_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      id: item?.id || makeId("i"),
       name: name.trim(),
       catId,
       bands: bandIds.length ? bandIds : [bands[0].id],
@@ -141,7 +173,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
             <label className="field-label">
               Time bands
               <InfoDot tip="Pick one or more horizons. If you pick non-adjacent ones, the item will be split." />
-              <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>
+              <span style={OPTIONAL_TAG_STYLE}>
                 {bandIds.length === 0 ? "pick at least one" : bandIds.length === 1 ? "single horizon" : `spans ${bandIds.length} bands`}
               </span>
             </label>
@@ -167,7 +199,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
             <label className="field-label">
               PESTLE tags
               <InfoDot tip="Optional. Six-letter checklist for what kind of force this item represents — Political, Economic, Social, Technological, Legal, Environmental." />
-              <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>optional</span>
+              <span style={OPTIONAL_TAG_STYLE}>optional</span>
             </label>
             <div className="toggle-row">
               {PESTLE.map(p => (
@@ -184,7 +216,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
           </div>
 
           <div className="field">
-            <label className="field-label">Description <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>optional</span></label>
+            <label className="field-label">Description <span style={OPTIONAL_TAG_STYLE}>optional</span></label>
             <textarea
               className="field-textarea"
               placeholder="Why does this matter? What does it look like? Who's involved?"
@@ -196,7 +228,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
           <div className="field">
             <label className="field-label">
               Notes / Advice
-              <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>optional</span>
+              <span style={OPTIONAL_TAG_STYLE}>optional</span>
             </label>
             <textarea
               className="field-textarea field-notes"
@@ -370,8 +402,8 @@ function StructureModal({ open, state, onSave, onClose }) {
 
   const updateCat = (id, patch) => setCats(cats.map(c => c.id === id ? { ...c, ...patch } : c));
   const updateBand = (id, patch) => setBands(bands.map(b => b.id === id ? { ...b, ...patch } : b));
-  const addCat = () => setCats([...cats, { id: `l_${Date.now()}`, label: "New layer", sub: "", color: PALETTE[cats.length % PALETTE.length], help: "" }]);
-  const addBand = () => setBands([...bands, { id: `b_${Date.now()}`, label: "New band", tag: "", color: PALETTE[bands.length % PALETTE.length] }]);
+  const addCat = () => setCats([...cats, { id: makeId("l"), label: "New layer", sub: "", color: PALETTE[cats.length % PALETTE.length], help: "" }]);
+  const addBand = () => setBands([...bands, { id: makeId("b"), label: "New band", tag: "", color: PALETTE[bands.length % PALETTE.length] }]);
   const delCat = id => {
     if (cats.length <= 1) {
       setErr("Roadmap needs at least one layer.");
@@ -422,7 +454,7 @@ function StructureModal({ open, state, onSave, onClose }) {
               </div>
               <div className="col" style={{ gap: 8 }}>
                 {cats.map((c, i) => (
-                  <div key={c.id} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 10, background: "var(--surface-2)" }}>
+                  <div key={c.id} style={STRUCTURE_CARD_STYLE}>
                     <div className="row" style={{ gap: 8, marginBottom: 6 }}>
                       <input
                         className="field-input"
@@ -433,7 +465,7 @@ function StructureModal({ open, state, onSave, onClose }) {
                       <input
                         type="color"
                         value={resolveToHex(c.color)}
-                        style={{ width: 32, height: 28, border: "1px solid var(--line)", borderRadius: 6, padding: 2, background: resolveToHex(c.color), cursor: "pointer" }}
+                        style={{ ...COLOR_SWATCH_BASE_STYLE, background: resolveToHex(c.color) }}
                         onChange={e => updateCat(c.id, { color: e.target.value })}
                       />
                       <button
@@ -466,7 +498,7 @@ function StructureModal({ open, state, onSave, onClose }) {
               </div>
               <div className="col" style={{ gap: 8 }}>
                 {bands.map((b, i) => (
-                  <div key={b.id} style={{ border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 10, background: "var(--surface-2)" }}>
+                  <div key={b.id} style={STRUCTURE_CARD_STYLE}>
                     <div className="row" style={{ gap: 8, marginBottom: 6 }}>
                       <input
                         className="field-input"
@@ -477,7 +509,7 @@ function StructureModal({ open, state, onSave, onClose }) {
                       <input
                         type="color"
                         value={resolveToHex(b.color)}
-                        style={{ width: 32, height: 28, border: "1px solid var(--line)", borderRadius: 6, padding: 2, background: resolveToHex(b.color), cursor: "pointer" }}
+                        style={{ ...COLOR_SWATCH_BASE_STYLE, background: resolveToHex(b.color) }}
                         onChange={e => updateBand(b.id, { color: e.target.value })}
                       />
                       <button

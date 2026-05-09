@@ -3,11 +3,19 @@
 // Single unified grid: layers (rows) × bands (cols). Items are chips.
 // Items with multi-band spans render as wide cards spanning columns.
 
+const CHIP_DESC_PREVIEW = 80;
+
+// Mix `color` with white at the given percentage. Returns a CSS color-mix()
+// expression that browsers resolve at paint time — works with var(--…) and oklch().
+function mix(color, pct) {
+  return `color-mix(in oklch, ${color} ${pct}%, white)`;
+}
+
 function Chip({ item, cat, bands, onEdit, onDragStart, onDragEnd, dragging, selected, onToggleSelect }) {
   const isSpan = item.bands.length > 1;
   const cls = isSpan ? "chip span" : "chip";
-  const bg  = `color-mix(in oklch, ${cat.color} 8%, white)`;
-  const border = `color-mix(in oklch, ${cat.color} 35%, white)`;
+  const bg = mix(cat.color, 8);
+  const border = mix(cat.color, 35);
   const labels = item.bands.map(bid => bands.find(b => b.id === bid)?.label).filter(Boolean);
   return (
     <div
@@ -35,7 +43,12 @@ function Chip({ item, cat, bands, onEdit, onDragStart, onDragEnd, dragging, sele
       </div>
       <div className="chip-text">
         {item.name}
-        {item.description && <small>{item.description.slice(0, 80)}{item.description.length > 80 ? "…" : ""}</small>}
+        {item.description && (
+          <small>
+            {item.description.slice(0, CHIP_DESC_PREVIEW)}
+            {item.description.length > CHIP_DESC_PREVIEW ? "…" : ""}
+          </small>
+        )}
       </div>
       {item.pestle && item.pestle.length > 0 && (
         <div className="chip-tags">
@@ -44,7 +57,7 @@ function Chip({ item, cat, bands, onEdit, onDragStart, onDragEnd, dragging, sele
             if (!p) return null;
             return (
               <span key={k} className="chip-tag" style={{
-                background: `color-mix(in oklch, ${p.color} 18%, white)`,
+                background: mix(p.color, 18),
                 color: `color-mix(in oklch, ${p.color} 85%, var(--ink))`
               }}>{k}</span>
             );
@@ -53,7 +66,7 @@ function Chip({ item, cat, bands, onEdit, onDragStart, onDragEnd, dragging, sele
       )}
       {item.notes && (
         <div className="chip-note" title={item.notes.slice(0, 100)} style={{
-          background: `color-mix(in oklch, ${cat.color} 15%, white)`,
+          background: mix(cat.color, 15),
           color: `color-mix(in oklch, ${cat.color} 70%, var(--ink))`
         }}>
           <Icon name="edit" size={9} />

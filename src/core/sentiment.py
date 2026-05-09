@@ -1,9 +1,21 @@
-# sentiment.py â€” run sentiment on a sentence using the routed model
+# sentiment.py — run sentiment on a sentence using the routed model
 
-from typing import Tuple, Dict
+from typing import Dict
+
 from core.router import get_model_config
 
-_pipeline_cache: Dict[str, object] = {}   # model_id â†’ pipeline
+# model_id -> transformers pipeline (loaded once per model on first use)
+_pipeline_cache: Dict[str, object] = {}
+
+# Map any model's raw label string -> canonical positive / negative / neutral
+_LABEL_NORM = {
+    "positive": "positive", "pos": "positive", "label_2": "positive",  # cardiffnlp
+    "negative": "negative", "neg": "negative", "label_0": "negative",
+    "neutral":  "neutral",  "neu": "neutral",  "label_1": "neutral",
+}
+
+# canonical label -> direction score
+_LABEL_TO_SCORE = {"positive": 1, "neutral": 0, "negative": -1}
 
 
 def _get_pipeline(model_id: str, max_length: int):
@@ -19,28 +31,13 @@ def _get_pipeline(model_id: str, max_length: int):
     return _pipeline_cache[model_id]
 
 
-# Map any model's raw label string â†’ canonical positive / negative / neutral
-_LABEL_NORM = {
-    "positive":  "positive",
-    "pos":       "positive",
-    "label_2":   "positive",   # cardiffnlp convention
-    "negative":  "negative",
-    "neg":       "negative",
-    "label_0":   "negative",
-    "neutral":   "neutral",
-    "neu":       "neutral",
-    "label_1":   "neutral",
-}
-
-
 def _normalize_label(raw: str) -> str:
     return _LABEL_NORM.get(raw.lower(), "neutral")
 
 
 def sentiment_to_score(label: str) -> int:
-    """canonical label â†’ direction score  (+1, 0, -1)"""
-    mapping = {"positive": 1, "neutral": 0, "negative": -1}
-    return mapping.get(label, 0)
+    """Canonical label -> direction score (+1, 0, -1)."""
+    return _LABEL_TO_SCORE.get(label, 0)
 
 
 def classify_sentiment(sentence: str, pestle_label: str) -> Dict:

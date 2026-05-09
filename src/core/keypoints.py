@@ -184,17 +184,6 @@ def _mmr_select(scores, sent_emb, k: int) -> List[int]:
     return picked
 
 
-def _tfidf_fallback_scores(sentences: List[str]):
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    import numpy as np
-
-    vec = TfidfVectorizer(stop_words="english")
-    matrix = vec.fit_transform(sentences)
-    sums = matrix.sum(axis=1).A1
-    nnz = np.clip((matrix != 0).sum(axis=1).A1, 1, None)
-    return sums / nnz
-
-
 def _build_context(sentences: List[str], idx: int, window: int) -> str:
     """Sentence at `idx` plus `window` neighbours each side, joined in order."""
     if window <= 0:
@@ -232,53 +221,29 @@ def extract_keypoints_rich(
     if not sentences:
         raise ValueError("No usable sentences found in text.")
 
-    using_semantic = True
-    relevance_per_sent = None
-    composite = None
+    # Score every sentence; if there are more than max_points, narrow via MMR.
+    try:
+        composite, sent_emb, relevance_per_sent = _score_semantic(sentences)
+    except Exception as exc:
+        _raise_semantic_required_error(exc)
 
     if len(sentences) <= max_points:
         picked_idx = list(range(len(sentences)))
-        try:
-            composite, _, relevance_per_sent = _score_semantic(sentences)
-        except Exception as exc:
-            _raise_semantic_required_error(exc)
     else:
-        try:
-            composite, sent_emb, relevance_per_sent = _score_semantic(sentences)
-            picked_idx = _mmr_select(composite, sent_emb, max_points)
-        except Exception as exc:
-            _raise_semantic_required_error(exc)
+        picked_idx = _mmr_select(composite, sent_emb, max_points)
 
-    picked_sorted = sorted(picked_idx)
-
-    out: List[Dict[str, Any]] = []
     gain = float(KEYPOINTS_RELEVANCE_GAIN)
-    if using_semantic and relevance_per_sent is not None:
-        for i in picked_sorted:
-            raw = float(max(0.0, min(1.0, relevance_per_sent[i])))
-            rel = max(0.0, min(1.0, raw * gain))
-            out.append({
-                "sentence":  sentences[i],
-                "relevance": round(rel, 4),
-                "context":   _build_context(sentences, i, context_window),
-                "composite": round(float(composite[i]), 4),
-                "position":  i,
-            })
-    else:
-        # Fallback: no PESTLE-sim available. Use rank-normalized composite.
-        # Gain not applied here — fallback already saturates the top pick at 1.0.
-        max_c = max(float(composite[i]) for i in picked_idx) or 1.0
-        for i in picked_sorted:
-            rel = float(composite[i]) / max_c
-            rel = max(0.0, min(1.0, rel))
-            out.append({
-                "sentence":  sentences[i],
-                "relevance": round(rel, 4),
-                "context":   _build_context(sentences, i, context_window),
-                "composite": round(float(composite[i]), 4),
-                "position":  i,
-            })
-
+    out: List[Dict[str, Any]] = []
+    for i in sorted(picked_idx):
+        raw = max(0.0, min(1.0, float(relevance_per_sent[i])))
+        rel = max(0.0, min(1.0, raw * gain))
+        out.append({
+            "sentence":  sentences[i],
+            "relevance": round(rel, 4),
+            "context":   _build_context(sentences, i, context_window),
+            "composite": round(float(composite[i]), 4),
+            "position":  i,
+        })
     return out
 
 

@@ -1,6 +1,8 @@
 /* global React, ReactDOM, Icon, InfoDot, StartScreen, TemplatePicker, CoachRail, RoadmapGrid, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
 const LEGACY_STORAGE_KEY = "ddrm_v1";
 const ROADMAPS_KEY = "ddrm_roadmaps_v1";
+const TOAST_DURATION_MS = 2200;
+const UNDO_LIMIT = 30;
 
 function createRoadmapId() {
   return `rm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -101,6 +103,118 @@ function useHashRoute() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
   return route;
+}
+
+// Single source for transient status messages. Timer cleared on unmount and
+// on every new message so overlapping toasts don't dismiss each other early.
+function useToast(durationMs = TOAST_DURATION_MS) {
+  const [toast, setToast] = React.useState({ on: false, msg: "" });
+  const timerRef = React.useRef(null);
+
+  React.useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const showToast = React.useCallback((msg) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setToast({ on: true, msg });
+    timerRef.current = setTimeout(() => {
+      setToast({ on: false, msg: "" });
+      timerRef.current = null;
+    }, durationMs);
+  }, [durationMs]);
+
+  return [toast, showToast];
+}
+
+// Build CSV/JSON/text payloads for the "export selection" modal.
+// Kept module-level (pure) so they're trivially testable and don't capture
+// stale closures from the App component.
+function csvEscape(value) {
+  return `"${String(value || "").replace(/"/g, '""')}"`;
+}
+
+function buildSelectionJson(state, picked) {
+  const usedCats = new Set(picked.map(i => i.catId));
+  const usedBands = new Set(picked.flatMap(i => i.bands));
+  return JSON.stringify({
+    title: `${state.title} (selection)`,
+    sourceTemplate: state.templateId,
+    exportedAt: new Date().toISOString(),
+    categories: state.categories.filter(c => usedCats.has(c.id)),
+    bands: state.bands.filter(b => usedBands.has(b.id)),
+    items: picked
+  }, null, 2);
+}
+
+function buildSelectionCsv(state, picked) {
+  const head = ["Name", "Layer", "Time bands", "PESTLE", "Description"].join(",");
+  const rows = picked.map(item => {
+    const cat = state.categories.find(c => c.id === item.catId);
+    const bandLabels = item.bands
+      .map(bid => state.bands.find(b => b.id === bid)?.label)
+      .filter(Boolean)
+      .join(" / ");
+    return [
+      csvEscape(item.name),
+      csvEscape(cat?.label || ""),
+      csvEscape(bandLabels),
+      csvEscape((item.pestle || []).join(" ")),
+      csvEscape(item.description || "")
+    ].join(",");
+  });
+  return [head, ...rows].join("\n");
+}
+
+function buildSelectionText(state, picked) {
+  const groups = picked.reduce((acc, item) => {
+    const cat = state.categories.find(c => c.id === item.catId);
+    const key = cat?.label || "Unknown";
+    (acc[key] ||= []).push(item);
+    return acc;
+  }, {});
+
+  let out = `# ${state.title} - selected items (${picked.length})\n\n`;
+  Object.entries(groups).forEach(([catLabel, items]) => {
+    out += `## ${catLabel}\n`;
+    items.forEach(item => {
+      const arrow = item.bands
+        .map(bid => state.bands.find(b => b.id === bid)?.label)
+        .filter(Boolean)
+        .join(" -> ");
+      const tags = item.pestle?.length ? `  [${item.pestle.join(", ")}]` : "";
+      out += `  - ${item.name}${arrow ? `  (${arrow})` : ""}${tags}\n`;
+      if (item.description) out += `      ${item.description}\n`;
+    });
+    out += "\n";
+  });
+  return out;
+}
+
+const EXPORT_FORMATS = {
+  json: { ext: "json", mime: "application/json", build: buildSelectionJson },
+  csv:  { ext: "csv",  mime: "text/csv",         build: buildSelectionCsv },
+  text: { ext: "txt",  mime: "text/plain",       build: buildSelectionText }
+};
+
+// Format an Impact Advisor entry into note text. Supports both new
+// (multi-expert advices array) and legacy (single suggested_change) shapes.
+function formatGuidanceNote(entry, verdict) {
+  const lines = [];
+  if (Array.isArray(entry.advices) && entry.advices.length > 0) {
+    const expertNoun = entry.advices.length === 1 ? "expert" : "experts";
+    lines.push(`Impact review (${verdict}) — ${entry.advices.length} ${expertNoun}:`);
+    entry.advices.forEach(a => {
+      const role = a.role || "Advisor";
+      const action = a.action ? ` (${a.action})` : "";
+      lines.push(`  [${role}${action}] ${a.advice || ""}`);
+      if (a.evidence_basis) lines.push(`    Evidence: ${a.evidence_basis}`);
+    });
+  } else {
+    lines.push(`Impact review (${verdict}): ${entry.suggested_change || ""}`);
+    if (entry.evidence_basis) lines.push(`Evidence: ${entry.evidence_basis}`);
+  }
+  return lines.filter(Boolean).join("\n");
 }
 
 function formatUpdatedAt(value) {
@@ -235,13 +349,23 @@ function App() {
   const [showStructure, setShowStructure] = React.useState(false);
   const [showImpactAdvisor, setShowImpactAdvisor] = React.useState(false);
   const [itemModal, setItemModal] = React.useState({ open: false, item: null, prefill: null });
-  const [toast, setToast] = React.useState({ on: false, msg: "" });
+  const [toast, showToast] = useToast();
   const [coachStep, setCoachStep] = React.useState("name");
   const [selected, setSelected] = React.useState(new Set());
   const [showExport, setShowExport] = React.useState({ open: false, kind: null, payload: "" });
 
   const activeRecord = route.id ? roadmaps.find(r => r.id === route.id) : null;
   const routeImportOpen = route.view === "builder" && route.action === "import";
+
+  // All collection mutations route through here so persistence is never forgotten.
+  // Declared before effects that depend on it to avoid TDZ on the dep-array read.
+  const updateRoadmaps = React.useCallback((mutate) => {
+    setRoadmaps(prev => {
+      const next = mutate(prev);
+      saveRoadmapCollection(next);
+      return next;
+    });
+  }, []);
 
   React.useEffect(() => {
     if (route.view === "empty") {
@@ -271,7 +395,6 @@ function App() {
   const undoStackRef = React.useRef([]);
   const skipUndoPushRef = React.useRef(false);
   const [canUndo, setCanUndo] = React.useState(false);
-  const UNDO_LIMIT = 30;
 
   React.useEffect(() => {
     if (!state || !isValidRoadmapState(state)) return;
@@ -293,17 +416,14 @@ function App() {
     showToast("Undo");
   }, []);
 
+  // Persist current builder state into the collection on every change.
   React.useEffect(() => {
     if (route.view !== "builder" || !route.id || !state || !isValidRoadmapState(state)) return;
-    setRoadmaps(prev => {
-      const next = prev.map(record => record.id === route.id
-        ? { ...record, title: titleOf(state), updatedAt: new Date().toISOString(), state: { ...state, title: titleOf(state) } }
-        : record
-      );
-      saveRoadmapCollection(next);
-      return next;
-    });
-  }, [state, route.view, route.id]);
+    updateRoadmaps(prev => prev.map(record => record.id === route.id
+      ? { ...record, title: titleOf(state), updatedAt: new Date().toISOString(), state: { ...state, title: titleOf(state) } }
+      : record
+    ));
+  }, [state, route.view, route.id, updateRoadmaps]);
 
   // figure out current step based on data
   React.useEffect(() => {
@@ -343,18 +463,9 @@ function App() {
     return () => window.removeEventListener("keydown", handler);
   }, [route.view, state, selected, showExport.open, itemModal.open, undo]);
 
-  const showToast = (msg) => {
-    setToast({ on: true, msg });
-    setTimeout(() => setToast({ on: false, msg: "" }), 2200);
-  };
-
   const addRoadmap = (roadmapState) => {
     const record = makeRecord(roadmapState);
-    setRoadmaps(prev => {
-      const next = [record, ...prev];
-      saveRoadmapCollection(next);
-      return next;
-    });
+    updateRoadmaps(prev => [record, ...prev]);
     go(`/roadmaps/${encodeURIComponent(record.id)}`);
     return record;
   };
@@ -369,22 +480,14 @@ function App() {
     const copyState = JSON.parse(JSON.stringify(record.state));
     copyState.title = `${titleOf(copyState)} copy`;
     const copy = makeRecord(copyState);
-    setRoadmaps(prev => {
-      const next = [copy, ...prev];
-      saveRoadmapCollection(next);
-      return next;
-    });
+    updateRoadmaps(prev => [copy, ...prev]);
     showToast("Roadmap duplicated");
   };
   const deleteRoadmap = (id) => {
     const record = roadmaps.find(r => r.id === id);
     if (!record) return;
     if (!confirm(`Delete "${record.title || "Untitled Roadmap"}"? This cannot be undone.`)) return;
-    setRoadmaps(prev => {
-      const next = prev.filter(r => r.id !== id);
-      saveRoadmapCollection(next);
-      return next;
-    });
+    updateRoadmaps(prev => prev.filter(r => r.id !== id));
     if (route.id === id) go("/roadmaps");
     showToast("Roadmap deleted");
   };
@@ -460,68 +563,26 @@ function App() {
     showToast(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
   };
 
-  const buildSelectedExport = (kind) => {
-    const picked = state.items.filter(i => selected.has(i.id));
-    if (kind === "json") {
-      const usedCats  = new Set(picked.map(i => i.catId));
-      const usedBands = new Set(picked.flatMap(i => i.bands));
-      const subset = {
-        title: state.title + " (selection)",
-        sourceTemplate: state.templateId,
-        exportedAt: new Date().toISOString(),
-        categories: state.categories.filter(c => usedCats.has(c.id)),
-        bands: state.bands.filter(b => usedBands.has(b.id)),
-        items: picked
-      };
-      return JSON.stringify(subset, null, 2);
-    }
-    if (kind === "csv") {
-      const head = ["Name","Layer","Time bands","PESTLE","Description"].join(",");
-      const esc = v => `"${String(v||"").replace(/"/g,'""')}"`;
-      const rows = picked.map(i => {
-        const cat  = state.categories.find(c => c.id === i.catId);
-        const blab = i.bands.map(b => state.bands.find(x => x.id === b)?.label).filter(Boolean).join(" / ");
-        return [esc(i.name), esc(cat?.label || ""), esc(blab), esc((i.pestle||[]).join(" ")), esc(i.description || "")].join(",");
-      });
-      return [head, ...rows].join("\n");
-    }
-    if (kind === "text") {
-      const byCat = {};
-      picked.forEach(i => {
-        const cat = state.categories.find(c => c.id === i.catId);
-        const k = cat?.label || "Unknown";
-        (byCat[k] ||= []).push(i);
-      });
-      let out = `# ${state.title} - selected items (${picked.length})\n\n`;
-      Object.entries(byCat).forEach(([cat, items]) => {
-        out += `## ${cat}\n`;
-        items.forEach(i => {
-          const bl = i.bands.map(b => state.bands.find(x => x.id === b)?.label).filter(Boolean).join(" -> ");
-          out += `  - ${i.name}${bl ? `  (${bl})` : ""}${i.pestle?.length ? `  [${i.pestle.join(", ")}]` : ""}\n`;
-          if (i.description) out += `      ${i.description}\n`;
-        });
-        out += "\n";
-      });
-      return out;
-    }
-    return "";
-  };
-
   const onExportSelected = (kind) => {
     if (!selected.size) return;
-    const payload = buildSelectedExport(kind);
-    setShowExport({ open: true, kind, payload });
+    const format = EXPORT_FORMATS[kind];
+    if (!format) return;
+    const picked = state.items.filter(i => selected.has(i.id));
+    setShowExport({ open: true, kind, payload: format.build(state, picked) });
   };
 
   const downloadExport = () => {
-    const ext  = showExport.kind === "json" ? "json" : showExport.kind === "csv" ? "csv" : "txt";
-    const mime = showExport.kind === "json" ? "application/json" : showExport.kind === "csv" ? "text/csv" : "text/plain";
-    const blob = new Blob([showExport.payload], { type: mime });
-    const url  = URL.createObjectURL(blob);
+    const format = EXPORT_FORMATS[showExport.kind];
+    if (!format) return;
+    const blob = new Blob([showExport.payload], { type: format.mime });
+    const url = URL.createObjectURL(blob);
+    const safeTitle = state.title.replace(/[^\w\-]+/g, "_");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${state.title.replace(/[^\w\-]+/g,"_")}_selection.${ext}`;
-    document.body.appendChild(a); a.click(); a.remove();
+    a.download = `${safeTitle}_selection.${format.ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     URL.revokeObjectURL(url);
     showToast("Downloaded");
   };
@@ -575,27 +636,7 @@ function App() {
       items: s.items.map(item => {
         const entry = byId[item.id];
         if (!entry) return item;
-
-        // New shape: entry has `advices: [{role, action, advice, evidence_basis}]`
-        // Legacy shape: entry has `suggested_change` + `evidence_basis` directly.
-        const adviceLines = [];
-        if (Array.isArray(entry.advices) && entry.advices.length > 0) {
-          adviceLines.push(`Impact review (${verdict}) — ${entry.advices.length} expert${entry.advices.length === 1 ? "" : "s"}:`);
-          entry.advices.forEach(a => {
-            const role = a.role || "Advisor";
-            const action = a.action ? ` (${a.action})` : "";
-            adviceLines.push(`  [${role}${action}] ${a.advice || ""}`);
-            if (a.evidence_basis) {
-              adviceLines.push(`    Evidence: ${a.evidence_basis}`);
-            }
-          });
-        } else {
-          // Legacy single-advice format
-          adviceLines.push(`Impact review (${verdict}): ${entry.suggested_change || ""}`);
-          if (entry.evidence_basis) adviceLines.push(`Evidence: ${entry.evidence_basis}`);
-        }
-
-        const note = adviceLines.filter(Boolean).join("\n");
+        const note = formatGuidanceNote(entry, verdict);
         const existingNotes = item.notes || "";
         return {
           ...item,

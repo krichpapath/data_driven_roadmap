@@ -4,6 +4,7 @@ const ADVISOR_API_KEY = "ddrm_advisor_api_url";
 const ADVISOR_MODEL_KEY = "ddrm_advisor_llm_model";
 const DEFAULT_ADVISOR_API = "http://127.0.0.1:7875/api/recommend";
 const DEFAULT_ADVISOR_MODEL = "gpt-4o-mini";
+const EVIDENCE_SNIPPET_MAX = 220;
 
 const ADVISOR_MODEL_OPTIONS = [
   { value: "gpt-4o",        label: "GPT-4o — best quality, slower",         tier: "premium" },
@@ -13,6 +14,39 @@ const ADVISOR_MODEL_OPTIONS = [
   { value: "o1-mini",       label: "o1-mini — reasoning model",             tier: "premium" },
   { value: "o3-mini",       label: "o3-mini — newer reasoning model",       tier: "premium" },
 ];
+
+// localStorage-backed state. Reads once on mount; writes on every change.
+// Falls back to `defaultValue` when storage is empty or unavailable.
+function useLocalStorageState(key, defaultValue) {
+  const [value, setValue] = React.useState(() => {
+    try { return localStorage.getItem(key) || defaultValue; }
+    catch { return defaultValue; }
+  });
+  React.useEffect(() => {
+    try { localStorage.setItem(key, value); } catch { /* quota / private mode */ }
+  }, [key, value]);
+  return [value, setValue];
+}
+
+// Read a File as UTF-8 text. Returns a promise so callers can await + handle errors uniformly.
+function readTextFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => resolve(ev.target.result || "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+// Build the inline style for a PESTLE-tinted pill. Centralises the four
+// color-mix() calls that were duplicated across keypoint, expert, and driver pills.
+function pestleTintStyle(color) {
+  return {
+    background: `color-mix(in oklch, ${color} 22%, var(--surface))`,
+    color: `color-mix(in oklch, ${color} 90%, var(--ink))`,
+    borderColor: `color-mix(in oklch, ${color} 50%, var(--line))`
+  };
+}
 
 function verdictTone(verdict) {
   if (verdict === "Revise") return "revise";
@@ -59,7 +93,9 @@ function pestleColor(label) {
 
 function evidenceSnippet(text) {
   if (!text) return "";
-  return text.length > 220 ? text.slice(0, 220).trim() + "..." : text;
+  return text.length > EVIDENCE_SNIPPET_MAX
+    ? text.slice(0, EVIDENCE_SNIPPET_MAX).trim() + "..."
+    : text;
 }
 
 async function readAdvisorError(res) {
@@ -96,8 +132,8 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const fileRef = React.useRef(null);
   const textareaRef = React.useRef(null);
   const [fileDragOver, setFileDragOver] = React.useState(false);
-  const [apiUrl, setApiUrl] = React.useState(() => localStorage.getItem(ADVISOR_API_KEY) || DEFAULT_ADVISOR_API);
-  const [llmModel, setLlmModel] = React.useState(() => localStorage.getItem(ADVISOR_MODEL_KEY) || DEFAULT_ADVISOR_MODEL);
+  const [apiUrl, setApiUrl] = useLocalStorageState(ADVISOR_API_KEY, DEFAULT_ADVISOR_API);
+  const [llmModel, setLlmModel] = useLocalStorageState(ADVISOR_MODEL_KEY, DEFAULT_ADVISOR_MODEL);
   const [inputMode, setInputMode] = React.useState("Text");
   const [newsText, setNewsText] = React.useState("");
   const [fileName, setFileName] = React.useState("");
@@ -110,14 +146,6 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [actionFilter, setActionFilter] = React.useState("all"); // all | revise | adjust | maintain
   const [expertFilter, setExpertFilter] = React.useState("all"); // all | <PESTLE role>
   const [showReasoning, setShowReasoning] = React.useState(false);
-
-  React.useEffect(() => {
-    localStorage.setItem(ADVISOR_API_KEY, apiUrl);
-  }, [apiUrl]);
-
-  React.useEffect(() => {
-    localStorage.setItem(ADVISOR_MODEL_KEY, llmModel);
-  }, [llmModel]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -220,13 +248,18 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
       return item.advices.some(a => actionTone(a.action) === actionFilter);
     });
 
+  const loadFile = async (file) => {
+    setFileName(file.name);
+    try {
+      setNewsText(await readTextFile(file));
+    } catch {
+      setError("Could not read file.");
+    }
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (ev) => setNewsText(ev.target.result || "");
-    reader.readAsText(file);
+    if (file) loadFile(file);
   };
 
   const handleModeSwitch = (mode) => {
@@ -367,10 +400,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                     setError("Only .txt files supported.");
                     return;
                   }
-                  setFileName(file.name);
-                  const reader = new FileReader();
-                  reader.onload = ev => setNewsText(ev.target.result || "");
-                  reader.readAsText(file);
+                  loadFile(file);
                 }}
               >
                 {fileName ? (
@@ -572,11 +602,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                       const relPct = Math.round((ev.relevance || 0) * 100);
                       return (
                         <div key={i} className="advisor-keypoint-row">
-                          <span className="advisor-kp-pestle advisor-kp-pestle--lg" title={`PESTLE: ${ev.pestle}`} style={{
-                            background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
-                            color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
-                            borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`
-                          }}>{ev.pestle}</span>
+                          <span className="advisor-kp-pestle advisor-kp-pestle--lg" title={`PESTLE: ${ev.pestle}`} style={pestleTintStyle(col)}>{ev.pestle}</span>
                           <span className="advisor-kp-text" title={ev.sentence}>{ev.sentence}</span>
                           <div className="advisor-kp-rel-block"
                             role="progressbar"
@@ -634,11 +660,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                           className={`advisor-match-filter ${isOn ? "on" : ""}`}
                           onClick={() => setExpertFilter(isOn ? "all" : role)}
                           title={`Show only ${role} expert`}
-                          style={isOn ? {
-                            background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
-                            color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
-                            borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`,
-                          } : undefined}
+                          style={isOn ? pestleTintStyle(col) : undefined}
                         >
                           <span>{role}</span>
                           <span className="advisor-match-filter-count num">{expertCounts[role] || 0}</span>
@@ -714,11 +736,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                             {(item.matched_drivers || []).map(driver => {
                               const col = pestleColor(driver);
                               return (
-                                <em key={driver} className="advisor-driver-pill" title={`PESTLE: ${driver}`} style={{
-                                  background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
-                                  color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
-                                  borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`
-                                }}>{driver}</em>
+                                <em key={driver} className="advisor-driver-pill" title={`PESTLE: ${driver}`} style={pestleTintStyle(col)}>{driver}</em>
                               );
                             })}
                           </div>
@@ -733,11 +751,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                                   borderLeft: `3px solid ${col}`,
                                 }}>
                                   <div className="advisor-expert-advice-head">
-                                    <span className="advisor-expert-role" style={{
-                                      background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
-                                      color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
-                                      borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`,
-                                    }}>{a.role} expert</span>
+                                    <span className="advisor-expert-role" style={pestleTintStyle(col)}>{a.role} expert</span>
                                   </div>
                                   <p className="advisor-expert-advice-text">{a.advice}</p>
                                   {a.evidence_keypoint && a.evidence_keypoint.sentence && (

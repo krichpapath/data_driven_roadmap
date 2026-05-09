@@ -34,6 +34,9 @@ ACTION_BY_VERDICT = {
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini"
+DEFAULT_LLM_TIMEOUT_S = 45
+LLM_TEMPERATURE = 0.2
+HTTP_REFERER = "http://127.0.0.1:7860"
 
 def build_guidance_schema(keypoint_ids: List[str]) -> Dict:
     """Per-call schema for single-shot LLM path. evidence_keypoint_id enum-restricted
@@ -89,8 +92,17 @@ def build_guidance_schema(keypoint_ids: List[str]) -> Dict:
     }
 
 
+# Cached so repeated calls (key + model lookup, plus per-expert calls) only
+# read .env once per process.
+_dotenv_loaded = False
+
+
 def _load_dotenv(path: str = ".env") -> None:
-    """Tiny .env loader to avoid adding a dependency."""
+    """Tiny .env loader to avoid adding a dependency. Idempotent."""
+    global _dotenv_loaded
+    if _dotenv_loaded:
+        return
+    _dotenv_loaded = True
     if not os.path.exists(path):
         return
     with open(path, "r", encoding="utf-8") as fh:
@@ -113,6 +125,54 @@ def _openrouter_key() -> str:
 def _openrouter_model() -> str:
     _load_dotenv()
     return os.getenv("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL
+
+
+def _post_openrouter(
+    *,
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_content: str,
+    schema_name: str,
+    schema: Dict,
+    title: str,
+    timeout: int = DEFAULT_LLM_TIMEOUT_S,
+) -> Dict:
+    """POST a strict-JSON-schema chat completion to OpenRouter.
+
+    Returns the parsed assistant JSON content plus the resolved model name as
+    {"parsed": <dict>, "model": <str>}. Raises on HTTP/JSON failure.
+    """
+    response = requests.post(
+        OPENROUTER_URL,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": HTTP_REFERER,
+            "X-Title": title,
+        },
+        json={
+            "model": model,
+            "temperature": LLM_TEMPERATURE,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "strict": True,
+                    "schema": schema,
+                },
+            },
+        },
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    data = response.json()
+    parsed = json.loads(data["choices"][0]["message"]["content"])
+    return {"parsed": parsed, "model": data.get("model") or model}
 
 
 def _top_evidence(matches: List[Dict], limit: int = 5) -> List[str]:
@@ -215,54 +275,27 @@ def generate_openrouter_guidance(impact_result: Dict, matches: List[Dict], fallb
     prompt = build_llm_prompt(impact_result, matches)
     payload = _compact_payload(impact_result, matches)
     keypoint_ids = [e.get("id") for e in impact_result.get("evidence", []) if e.get("id")]
-    schema = build_guidance_schema(keypoint_ids)
 
-    response = requests.post(
-        OPENROUTER_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://127.0.0.1:7860",
-            "X-Title": "DDRM Roadmap Impact Review",
-        },
-        json={
-            "model": model,
-            "temperature": 0.2,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a DDRM roadmap advisor. Use the fixed impact verdict. "
-                        "Do not recalculate severity. Return only guidance for matched roadmap items."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": prompt + "\n\nDATA:\n" + json.dumps(payload, ensure_ascii=False),
-                },
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "ddrm_roadmap_guidance",
-                    "strict": True,
-                    "schema": schema,
-                },
-            },
-        },
-        timeout=45,
+    response = _post_openrouter(
+        api_key=api_key,
+        model=model,
+        system_prompt=(
+            "You are a DDRM roadmap advisor. Use the fixed impact verdict. "
+            "Do not recalculate severity. Return only guidance for matched roadmap items."
+        ),
+        user_content=prompt + "\n\nDATA:\n" + json.dumps(payload, ensure_ascii=False),
+        schema_name="ddrm_roadmap_guidance",
+        schema=build_guidance_schema(keypoint_ids),
+        title="DDRM Roadmap Impact Review",
     )
-    response.raise_for_status()
-    data = response.json()
-    content = data["choices"][0]["message"]["content"]
-    parsed = json.loads(content)
-    guidance = _validate_guidance(parsed, fallback)
+
+    guidance = _validate_guidance(response["parsed"], fallback)
     evidence_by_id = {e.get("id"): e for e in impact_result.get("evidence", []) if e.get("id")}
     for entry in guidance.get("item_guidance", []) or []:
         kp_id = entry.pop("evidence_keypoint_id", "")
         entry["evidence_keypoint"] = _resolve_keypoint(kp_id, evidence_by_id)
     guidance["llm_provider"] = "openrouter"
-    guidance["llm_model"] = data.get("model") or model
+    guidance["llm_model"] = response["model"]
     guidance["llm_prompt"] = prompt
     return guidance
 
@@ -474,53 +507,26 @@ def _validate_expert_response(raw: Dict, role: str) -> Dict:
 
 def _call_expert(role: str, role_keypoints: List[Dict], role_matches: List[Dict],
                  verdict: str, severity: float, model: str, api_key: str,
-                 timeout: int = 45) -> Dict:
+                 timeout: int = DEFAULT_LLM_TIMEOUT_S) -> Dict:
     """Single expert call. Returns {expert_summary, item_advices}. Raises on failure."""
     prompt = _build_expert_prompt(role, role_keypoints, role_matches, verdict, severity)
     payload = _compact_expert_payload(role, role_keypoints, role_matches)
     keypoint_ids = [e["id"] for e in role_keypoints if e.get("id")]
-    schema = build_expert_schema(keypoint_ids)
 
-    response = requests.post(
-        OPENROUTER_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "http://127.0.0.1:7860",
-            "X-Title": f"DDRM {role} Expert",
-        },
-        json={
-            "model": model,
-            "temperature": 0.2,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        f"You are the {role} expert in a PESTLE workshop. "
-                        f"Stay in your lane. Use the fixed DDRM verdict. Return only JSON."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": prompt + "\n\nDATA:\n" + json.dumps(payload, ensure_ascii=False),
-                },
-            ],
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": f"ddrm_expert_{role.lower()}",
-                    "strict": True,
-                    "schema": schema,
-                },
-            },
-        },
+    response = _post_openrouter(
+        api_key=api_key,
+        model=model,
+        system_prompt=(
+            f"You are the {role} expert in a PESTLE workshop. "
+            f"Stay in your lane. Use the fixed DDRM verdict. Return only JSON."
+        ),
+        user_content=prompt + "\n\nDATA:\n" + json.dumps(payload, ensure_ascii=False),
+        schema_name=f"ddrm_expert_{role.lower()}",
+        schema=build_expert_schema(keypoint_ids),
+        title=f"DDRM {role} Expert",
         timeout=timeout,
     )
-    response.raise_for_status()
-    data = response.json()
-    content = data["choices"][0]["message"]["content"]
-    parsed = json.loads(content)
-    return _validate_expert_response(parsed, role)
+    return _validate_expert_response(response["parsed"], role)
 
 
 def _resolve_keypoint(kp_id: str, evidence_by_id: Dict[str, Dict]) -> Optional[Dict]:
