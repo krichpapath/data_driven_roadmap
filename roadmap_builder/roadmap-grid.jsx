@@ -51,6 +51,14 @@ function Chip({ item, cat, bands, onEdit, onDragStart, onDragEnd, dragging, sele
           })}
         </div>
       )}
+      {item.notes && (
+        <div className="chip-note" title={item.notes.slice(0, 100)} style={{
+          background: `color-mix(in oklch, ${cat.color} 15%, white)`,
+          color: `color-mix(in oklch, ${cat.color} 70%, var(--ink))`
+        }}>
+          <Icon name="edit" size={9} />
+        </div>
+      )}
       {isSpan && labels.length > 0 && (
         <span className="chip-span-meta" style={{ color: cat.color }}>
           ↔ {labels[0]}…{labels[labels.length-1]}

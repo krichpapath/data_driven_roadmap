@@ -510,6 +510,14 @@ input, textarea, select { font: inherit; color: inherit; }
   color: var(--ink-muted);
   margin-left: auto;
 }
+.chip-note {
+  flex-shrink: 0;
+  align-self: flex-start;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
 
 /* ── Start screen ──────────────────────────────────────── */
 .start-shell {
@@ -933,6 +941,9 @@ input, textarea, select { font: inherit; color: inherit; }
   background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
+.advisor-topbar > .btn {
+  margin-left: auto;
+}
 .advisor-subtitle {
   color: var(--ink-muted);
   font-size: 11.5px;
@@ -1032,7 +1043,8 @@ input, textarea, select { font: inherit; color: inherit; }
 .advisor-results {
   min-height: 0;
   overflow: auto;
-  padding: 26px 32px 80px;
+  padding: 26px 32px 16px;
+  position: relative;
 }
 .advisor-empty {
   height: 100%;
@@ -1201,6 +1213,733 @@ input, textarea, select { font: inherit; color: inherit; }
   margin-top: 6px;
 }
 
+/* action verdict tag per card */
+.advisor-action-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 2px 7px;
+  border-radius: 99px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.advisor-action-tag.maintain { color: var(--ok);    border-color: color-mix(in oklch, var(--ok)    35%, white); background: transparent; }
+.advisor-action-tag.adjust   { color: var(--warn);  border-color: color-mix(in oklch, var(--warn)  35%, white); background: transparent; }
+.advisor-action-tag.revise   { color: var(--c-rose);border-color: color-mix(in oklch, var(--c-rose) 35%, white); background: transparent; }
+
+/* drag-and-drop file dropzone */
+.advisor-dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 2px dashed var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  user-select: none;
+}
+.advisor-dropzone:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.advisor-dropzone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.advisor-dropzone.has-file {
+  border-style: solid;
+  border-color: color-mix(in oklch, var(--c-green) 40%, var(--line));
+  background: color-mix(in oklch, var(--c-green) 6%, var(--surface));
+}
+.advisor-dropzone-icon {
+  flex-shrink: 0;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-muted);
+}
+.advisor-dropzone-icon.success {
+  background: color-mix(in oklch, var(--c-green) 12%, white);
+  border-color: color-mix(in oklch, var(--c-green) 35%, white);
+  color: var(--c-green);
+}
+.advisor-dropzone-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.advisor-dropzone-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.advisor-dropzone-text span {
+  font-size: 11.5px;
+  color: var(--ink-muted);
+}
+.advisor-dropzone-clear {
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+/* timer label inside assess button */
+.advisor-timer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 6px;
+}
+
+/* keypoints list */
+.advisor-keypoints {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+.advisor-keypoint-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  font-size: 12.5px;
+}
+.advisor-kp-pestle {
+  font: 600 10px 'JetBrains Mono', monospace;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.advisor-kp-text {
+  flex: 1;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.advisor-kp-rel {
+  font: 600 10.5px 'JetBrains Mono', monospace;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.advisor-kp-sent {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Progress stepper ──────────────────────────────────── */
+.advisor-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 22px;
+}
+.advisor-step {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+.advisor-step-node {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font: 600 11px 'JetBrains Mono', monospace;
+  color: var(--ink-faint);
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  flex-shrink: 0;
+}
+.advisor-step.done .advisor-step-node {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: white;
+}
+.advisor-step.active .advisor-step-node {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.advisor-step-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  transition: color 0.18s;
+}
+.advisor-step.done .advisor-step-label { color: oklch(0.36 0.10 155); }
+.advisor-step.active .advisor-step-label { color: var(--accent-ink); }
+.advisor-step-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--line-strong);
+  margin: 0 8px;
+  border-radius: 1px;
+  transition: background 0.18s;
+  min-width: 20px;
+}
+.advisor-step-connector.done { background: var(--ok); }
+
+/* ── Skeleton loading state ─────────────────────────────── */
+@keyframes skel-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+.advisor-skel-pulse { animation: skel-pulse 1.6s ease-in-out infinite; }
+.advisor-skeleton-wrap { display: flex; flex-direction: column; gap: 12px; }
+.advisor-skel-banner {
+  height: 110px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--surface-3);
+  border-radius: var(--r-lg);
+}
+.advisor-skel-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--surface-3);
+  border-radius: var(--r-md);
+  padding: 14px 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.advisor-skel-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.advisor-skel-line {
+  height: 12px;
+  background: var(--surface-3);
+  border-radius: 6px;
+  width: 100%;
+}
+.advisor-skel-line--title { height: 16px; width: 65%; }
+.advisor-skel-line--meta  { width: 45%; height: 10px; }
+.advisor-skel-line--short { width: 80%; }
+.advisor-skel-tag {
+  flex-shrink: 0;
+  width: 56px;
+  height: 20px;
+  background: var(--surface-3);
+  border-radius: 99px;
+}
+.advisor-skel-block {
+  height: 48px;
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+}
+
+/* ── Verdict banner v2 ──────────────────────────────────── */
+.advisor-verdict--v2 {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  padding-left: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.advisor-verdict--v2::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: var(--r-xs) 0 0 var(--r-xs);
+}
+.advisor-verdict--v2.maintain {
+  background: color-mix(in oklch, var(--ok) 5%, var(--surface));
+}
+.advisor-verdict--v2.maintain::before { background: var(--ok); }
+.advisor-verdict--v2.adjust {
+  background: color-mix(in oklch, var(--warn) 5%, var(--surface));
+}
+.advisor-verdict--v2.adjust::before { background: var(--warn); }
+.advisor-verdict--v2.revise {
+  background: color-mix(in oklch, var(--c-rose) 5%, var(--surface));
+}
+.advisor-verdict--v2.revise::before { background: var(--c-rose); }
+.advisor-verdict--v2 h1 {
+  font-size: 42px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+}
+.advisor-verdict-sublabel {
+  font-size: 13px;
+  font-weight: 500;
+  margin-top: 4px;
+  opacity: 0.8;
+}
+.advisor-verdict-reason {
+  color: var(--ink-muted);
+  margin-top: 8px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.advisor-verdict-severity {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.advisor-severity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.advisor-severity-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.advisor-severity-value {
+  font: 600 16px 'JetBrains Mono', monospace;
+  color: var(--ink-2);
+}
+.advisor-severity-track {
+  height: 8px;
+  background: var(--surface-3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.advisor-severity-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+.advisor-verdict--v2.maintain .advisor-severity-fill { background: var(--ok); }
+.advisor-verdict--v2.adjust   .advisor-severity-fill { background: var(--warn); }
+.advisor-verdict--v2.revise   .advisor-severity-fill { background: var(--c-rose); }
+
+/* ── Keypoint enhancements ──────────────────────────────── */
+.advisor-kp-pestle--lg {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-width: 1.5px;
+  border-radius: var(--r-sm);
+  letter-spacing: 0.03em;
+}
+.advisor-kp-rel-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+  width: 52px;
+}
+.advisor-kp-rel-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.advisor-kp-rel-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  opacity: 0.6;
+  transition: width 0.3s ease;
+}
+.advisor-kp-sent--badge {
+  background: var(--surface-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-xs);
+  padding: 1px 6px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+/* ── Card v2 enhancements ───────────────────────────────── */
+.advisor-card--v2 {
+  border-left-width: 3px;
+  padding-left: 11px;
+}
+.advisor-card--v2.tone-maintain { border-left-color: var(--ok); }
+.advisor-card--v2.tone-adjust   { border-left-color: var(--warn); }
+.advisor-card--v2.tone-revise   { border-left-color: var(--c-rose); }
+.advisor-driver-pill {
+  font-style: normal;
+  font: 600 11px 'JetBrains Mono', monospace;
+  padding: 3px 7px;
+  border-radius: var(--r-sm);
+  border: 1.5px solid;
+  letter-spacing: 0.02em;
+}
+.advisor-labelled--advice {
+  background: color-mix(in oklch, var(--accent) 4%, var(--surface));
+  border: 1px solid color-mix(in oklch, var(--accent) 18%, var(--line));
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 9px 10px;
+  margin-top: 10px;
+}
+.advisor-labelled--advice label { color: var(--accent-ink); }
+.advisor-labelled--advice p { color: var(--ink); font-weight: 500; }
+
+/* ── Sticky apply bar ───────────────────────────────────── */
+.advisor-apply-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid color-mix(in oklch, var(--accent) 25%, var(--line));
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: 0 -4px 18px oklch(0.18 0.02 270 / 0.07);
+  margin-top: 18px;
+  z-index: 10;
+}
+.advisor-apply-count {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  padding: 3px 10px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.advisor-summary-note {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.advisor-summary-note p {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+/* ── Tabular numerics utility (data-dense pattern) ─────── */
+.num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ── Compact + sticky verdict band (A1) ────────────────── */
+.advisor-verdict--compact {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "pill meta severity"
+    "reasoning reasoning reasoning";
+  align-items: center;
+  gap: 18px 24px;
+  padding: 14px 18px 12px 22px;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  backdrop-filter: saturate(140%) blur(6px);
+}
+.advisor-verdict--compact .advisor-verdict-pill {
+  grid-area: pill;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.advisor-verdict--compact .advisor-verdict-pill h1 {
+  font-size: 24px;
+  margin: 0;
+  line-height: 1.05;
+}
+.advisor-verdict--compact .advisor-verdict-meta { grid-area: meta; min-width: 0; }
+.advisor-verdict--compact .advisor-verdict-sublabel {
+  font-size: 13px;
+  color: var(--ink-muted);
+  margin-top: 0;
+  opacity: 1;
+}
+.advisor-verdict--compact .advisor-verdict-severity {
+  grid-area: severity;
+  min-width: 180px;
+}
+.advisor-verdict--compact .advisor-verdict-reasoning {
+  grid-area: reasoning;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+.advisor-verdict-reasoning > summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  list-style: none;
+  user-select: none;
+}
+.advisor-verdict-reasoning > summary::-webkit-details-marker { display: none; }
+.advisor-verdict-reasoning > summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 200ms;
+}
+.advisor-verdict-reasoning[open] > summary::before { content: "▾ "; }
+.advisor-verdict-reasoning .advisor-verdict-reason {
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+/* Severity ticks + scale labels (A5) */
+.advisor-severity-track { position: relative; }
+.advisor-severity-tick {
+  position: absolute;
+  top: -2px;
+  width: 1px;
+  height: 12px;
+  background: var(--line-strong);
+  pointer-events: none;
+}
+.advisor-severity-scale {
+  display: flex;
+  justify-content: space-between;
+  font: 500 9.5px 'JetBrains Mono', monospace;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 3px;
+}
+
+/* ── Settings disclosure (A3) ─────────────────────────── */
+.advisor-settings {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.advisor-settings > summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  list-style: none;
+  user-select: none;
+  padding: 4px 0;
+}
+.advisor-settings > summary::-webkit-details-marker { display: none; }
+.advisor-settings > summary::after {
+  content: "▸";
+  margin-left: 4px;
+  font-size: 10px;
+  transition: transform 200ms;
+}
+.advisor-settings[open] > summary::after { transform: rotate(90deg); }
+.advisor-settings .field { margin-top: 10px; }
+
+/* Keyboard shortcut hint (A9) */
+.advisor-shortcuts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+.advisor-shortcuts kbd {
+  font: 600 10px 'JetBrains Mono', monospace;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--ink-2);
+}
+
+/* ── Action tag with icon (A4) ────────────────────────── */
+.advisor-action-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.advisor-action-tag span,
+.advisor-action-tag svg {
+  color: inherit;
+  stroke: currentColor;
+}
+.advisor-card-head span,
+.advisor-card-head span span {
+  background: transparent !important;
+}
+.advisor-card--v2 .advisor-action-tag.maintain,
+.advisor-card--v2 .advisor-action-tag.adjust,
+.advisor-card--v2 .advisor-action-tag.revise,
+.advisor-action-tag.maintain,
+.advisor-action-tag.adjust,
+.advisor-action-tag.revise {
+  background: var(--surface) !important;
+}
+.advisor-card--v2 .advisor-action-tag.maintain { color: var(--ok);     border-color: color-mix(in oklch, var(--ok)     40%, var(--line)); }
+.advisor-card--v2 .advisor-action-tag.adjust   { color: var(--warn);   border-color: color-mix(in oklch, var(--warn)   40%, var(--line)); }
+.advisor-card--v2 .advisor-action-tag.revise   { color: var(--c-rose); border-color: color-mix(in oklch, var(--c-rose) 40%, var(--line)); }
+
+/* ── Match filters (A6) ───────────────────────────────── */
+.advisor-match-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed var(--line);
+}
+.advisor-match-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background 150ms, border-color 150ms, color 150ms;
+}
+.advisor-match-filter:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+.advisor-match-filter:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.advisor-match-filter.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.advisor-match-filter.tone-revise.on   { background: color-mix(in oklch, var(--c-rose) 12%, var(--surface)); border-color: var(--c-rose); color: var(--c-rose); }
+.advisor-match-filter.tone-adjust.on   { background: color-mix(in oklch, var(--warn) 14%, var(--surface));   border-color: var(--warn);   color: var(--warn); }
+.advisor-match-filter.tone-maintain.on { background: color-mix(in oklch, var(--ok) 12%, var(--surface));     border-color: var(--ok);     color: var(--ok); }
+.advisor-match-filter-count {
+  font: 600 10.5px 'JetBrains Mono', monospace;
+  background: var(--surface-3);
+  border-radius: 99px;
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+.advisor-filter-empty {
+  grid-column: 1 / -1;
+  padding: 22px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-muted);
+  background: var(--surface-2);
+  border: 1px dashed var(--line);
+  border-radius: var(--r-md);
+}
+
+/* ── Card hover row-highlight + clickable (A8, A14) ───── */
+.advisor-card--clickable {
+  cursor: pointer;
+  transition: transform 200ms, background 200ms, border-color 200ms, box-shadow 200ms;
+}
+.advisor-card--clickable:hover {
+  transform: translateY(-1px);
+  background: var(--surface-2);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
+}
+.advisor-card--clickable:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Collapsed evidence disclosure (A7) ───────────────── */
+.advisor-labelled--collapse {
+  margin-top: 8px;
+  border-top: 1px dashed var(--line);
+  padding-top: 8px;
+}
+.advisor-labelled--collapse > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.advisor-labelled--collapse > summary::-webkit-details-marker { display: none; }
+.advisor-labelled--collapse > summary::before {
+  content: "▸ ";
+  font-size: 9px;
+}
+.advisor-labelled--collapse[open] > summary::before { content: "▾ "; }
+.advisor-labelled--collapse > p {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
+/* ── Reduced motion ───────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .advisor-card--clickable,
+  .advisor-card--clickable:hover,
+  .advisor-match-filter,
+  .advisor-skel-pulse,
+  .advisor-severity-fill,
+  .advisor-kp-rel-fill {
+    transition: none !important;
+    transform: none !important;
+    animation: none !important;
+  }
+}
+
+/* notes / advice field in item modal */
+.field-notes {
+  background: color-mix(in oklch, var(--c-violet) 4%, var(--surface));
+  border-color: color-mix(in oklch, var(--c-violet) 25%, var(--line));
+}
+.field-notes:focus {
+  border-color: color-mix(in oklch, var(--c-violet) 55%, white);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--c-violet) 12%, white);
+}
+
 @media (max-width: 920px) {
   .advisor-shell {
     grid-template-rows: auto 1fr;
@@ -1210,12 +1949,10 @@ input, textarea, select { font: inherit; color: inherit; }
     flex-wrap: wrap;
     padding-block: 10px;
   }
-  .advisor-steps {
-    order: 3;
-    width: 100%;
-    margin-left: 0;
+  .advisor-stepper {
     overflow-x: auto;
-    padding-bottom: 2px;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
   }
   .advisor-layout {
     grid-template-columns: 1fr;
@@ -1226,21 +1963,26 @@ input, textarea, select { font: inherit; color: inherit; }
     max-height: 52vh;
   }
   .advisor-results {
-    padding: 20px 18px 70px;
+    padding: 20px 18px 16px;
   }
   .advisor-verdict {
     align-items: flex-start;
   }
-  .advisor-score {
-    width: 76px;
-    height: 76px;
+  .advisor-verdict--compact {
+    position: static;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "pill"
+      "meta"
+      "severity"
+      "reasoning";
+    gap: 10px;
   }
+  .advisor-verdict--compact .advisor-verdict-severity { min-width: 0; }
+  .advisor-match-filters { overflow-x: auto; flex-wrap: nowrap; }
 }
 
 @media (max-width: 560px) {
-  .advisor-steps {
-    display: none;
-  }
   .advisor-topbar {
     gap: 10px;
   }
@@ -1261,10 +2003,9 @@ input, textarea, select { font: inherit; color: inherit; }
   .advisor-match-grid {
     grid-template-columns: 1fr;
   }
-  .advisor-section.compact {
-    align-items: stretch;
-    flex-direction: column;
-  }
+  .advisor-step-label { display: none; }
+  .advisor-step-connector { min-width: 12px; margin: 0 4px; }
+  .advisor-apply-bar { flex-wrap: wrap; border-radius: var(--r-md); }
 }
 .toggle {
   padding: 6px 11px;

@@ -257,11 +257,41 @@ function App() {
     if (route.view !== "builder" || !activeRecord) {
       setState(null);
       setSelected(new Set());
+      undoStackRef.current = [];
+      setCanUndo(false);
       return;
     }
     setState(activeRecord.state);
     setSelected(new Set());
+    undoStackRef.current = [];
+    setCanUndo(false);
   }, [route.view, route.id]);
+
+  // Simple undo: keep last N state snapshots, single-step pop on Ctrl+Z
+  const undoStackRef = React.useRef([]);
+  const skipUndoPushRef = React.useRef(false);
+  const [canUndo, setCanUndo] = React.useState(false);
+  const UNDO_LIMIT = 30;
+
+  React.useEffect(() => {
+    if (!state || !isValidRoadmapState(state)) return;
+    if (skipUndoPushRef.current) { skipUndoPushRef.current = false; return; }
+    const stack = undoStackRef.current;
+    stack.push(state);
+    if (stack.length > UNDO_LIMIT) stack.shift();
+    setCanUndo(stack.length > 1);
+  }, [state]);
+
+  const undo = React.useCallback(() => {
+    const stack = undoStackRef.current;
+    if (stack.length < 2) return;
+    stack.pop(); // discard current
+    const prev = stack[stack.length - 1];
+    skipUndoPushRef.current = true;
+    setState(prev);
+    setCanUndo(stack.length > 1);
+    showToast("Undo");
+  }, []);
 
   React.useEffect(() => {
     if (route.view !== "builder" || !route.id || !state || !isValidRoadmapState(state)) return;
@@ -292,7 +322,10 @@ function App() {
     const handler = (e) => {
       const tag = e.target?.tagName;
       const editing = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && !editing) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !editing && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a" && !editing) {
         e.preventDefault();
         setSelected(new Set(state.items.map(i => i.id)));
       } else if (e.key === "Escape" && selected.size > 0 && !showExport.open && !itemModal.open) {
@@ -308,7 +341,7 @@ function App() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [route.view, state, selected, showExport.open, itemModal.open]);
+  }, [route.view, state, selected, showExport.open, itemModal.open, undo]);
 
   const showToast = (msg) => {
     setToast({ on: true, msg });
@@ -545,12 +578,12 @@ function App() {
           `Impact review (${result?.verdict || "Review"}): ${advice.suggested_change}`,
           advice.evidence_basis ? `Evidence: ${advice.evidence_basis}` : ""
         ].filter(Boolean).join("\n");
-        const existing = item.description || "";
+        const existingNotes = item.notes || "";
         return {
           ...item,
           reviewNeeded: true,
           lastImpactVerdict: result?.verdict || "",
-          description: existing ? `${existing}\n\n${note}` : note
+          notes: existingNotes ? `${existingNotes}\n\n${note}` : note
         };
       })
     }));
@@ -639,6 +672,14 @@ function App() {
             />
           </div>
           <div className="topbar-spacer" />
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={undo}
+            disabled={!canUndo}
+            title={canUndo ? "Undo last change (Ctrl+Z)" : "Nothing to undo"}
+          >
+            <Icon name="undo" size={14} /> Undo
+          </button>
           <button
             className={`btn btn-ghost btn-sm ${tweaks.showCoachRail ? "pressed" : ""}`}
             onClick={() => setTweak("showCoachRail", !tweaks.showCoachRail)}

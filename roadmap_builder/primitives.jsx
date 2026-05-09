@@ -35,6 +35,10 @@ function Icon({ name, size = 16, ...rest }) {
     case "tag":      return <svg {...props}><path d="M20 12V4h-8L3 13l8 8 9-9z"/><circle cx="15" cy="9" r="1.5"/></svg>;
     case "rows":     return <svg {...props}><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="11" width="18" height="5" rx="1"/></svg>;
     case "cols":     return <svg {...props}><rect x="4" y="3" width="5" height="18" rx="1"/><rect x="11" y="3" width="5" height="18" rx="1"/><rect x="18" y="3" width="3" height="18" rx="1"/></svg>;
+    case "alert-triangle": return <svg {...props}><path d="M12 3l10 18H2z"/><path d="M12 10v5"/><path d="M12 18v0"/></svg>;
+    case "pencil":   return <svg {...props}><path d="M14 4l6 6"/><path d="M3 21l4-1L20 7l-3-3L4 17z"/></svg>;
+    case "settings": return <svg {...props}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1A1.7 1.7 0 004.6 9a1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>;
+    case "keyboard": return <svg {...props}><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M6 10h0M10 10h0M14 10h0M18 10h0M6 14h0M18 14h0M10 14h4"/></svg>;
     default: return null;
   }
 }

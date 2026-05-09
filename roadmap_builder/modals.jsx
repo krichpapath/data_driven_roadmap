@@ -34,6 +34,7 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
   const [bandIds, setBandIds] = React.useState([]);
   const [pestle, setPestle] = React.useState([]);
   const [desc, setDesc] = React.useState("");
+  const [notes, setNotes] = React.useState("");
   const [err, setErr] = React.useState("");
 
   React.useEffect(() => {
@@ -44,11 +45,12 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
       setBandIds(Array.isArray(item.bands) ? [...item.bands] : []);
       setPestle([...(item.pestle || [])]);
       setDesc(item.description || "");
+      setNotes(item.notes || "");
     } else {
       setName("");
       setCatId(prefill?.catId || categories[0]?.id || "");
       setBandIds(prefill?.bandId ? [prefill.bandId] : (bands[0] ? [bands[0].id] : []));
-      setPestle([]); setDesc("");
+      setPestle([]); setDesc(""); setNotes("");
     }
   }, [open, item, prefill]);
 
@@ -75,7 +77,8 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
       catId,
       bands: bandIds.length ? bandIds : [bands[0].id],
       pestle,
-      description: desc.trim()
+      description: desc.trim(),
+      notes: notes.trim()
     });
   };
 
@@ -189,6 +192,22 @@ function ItemModal({ open, item, prefill, categories, bands, onSave, onClose, on
               onChange={e => setDesc(e.target.value)}
             />
           </div>
+
+          <div className="field">
+            <label className="field-label">
+              Notes / Advice
+              <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--ink-faint)", fontWeight: 400 }}>optional</span>
+            </label>
+            <textarea
+              className="field-textarea field-notes"
+              placeholder="Impact advisor notes appear here. Edit freely."
+              rows={3}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+            />
+            <div className="field-help">Populated by Impact Advisor. You can edit or clear this.</div>
+          </div>
+
           {err && <div className="field-help" style={{ color: "var(--c-rose)" }}>⚠ {err}</div>}
         </div>
 
