@@ -22,6 +22,7 @@ class RecommendRequest(BaseModel):
     input_mode: str = "Text"
     max_points: int = 5
     roadmap: Dict[str, Any]
+    use_expert_workshop: bool = True
 
 
 class RecommendResponse(BaseModel):
@@ -53,6 +54,7 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
             input_file=None,
             max_points=max(3, min(10, int(req.max_points))),
             roadmap_json=json.dumps(req.roadmap, ensure_ascii=False),
+            use_expert_workshop=bool(req.use_expert_workshop),
         )
         return RecommendResponse(result=result)
     except ValueError as exc:

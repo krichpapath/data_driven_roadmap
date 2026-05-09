@@ -569,20 +569,38 @@ function App() {
   const applyGuidanceNotes = (items, result) => {
     if (!items.length) return;
     const byId = Object.fromEntries(items.map(item => [item.item_id, item]));
+    const verdict = result?.verdict || "Review";
     setState(s => ({
       ...s,
       items: s.items.map(item => {
-        const advice = byId[item.id];
-        if (!advice) return item;
-        const note = [
-          `Impact review (${result?.verdict || "Review"}): ${advice.suggested_change}`,
-          advice.evidence_basis ? `Evidence: ${advice.evidence_basis}` : ""
-        ].filter(Boolean).join("\n");
+        const entry = byId[item.id];
+        if (!entry) return item;
+
+        // New shape: entry has `advices: [{role, action, advice, evidence_basis}]`
+        // Legacy shape: entry has `suggested_change` + `evidence_basis` directly.
+        const adviceLines = [];
+        if (Array.isArray(entry.advices) && entry.advices.length > 0) {
+          adviceLines.push(`Impact review (${verdict}) — ${entry.advices.length} expert${entry.advices.length === 1 ? "" : "s"}:`);
+          entry.advices.forEach(a => {
+            const role = a.role || "Advisor";
+            const action = a.action ? ` (${a.action})` : "";
+            adviceLines.push(`  [${role}${action}] ${a.advice || ""}`);
+            if (a.evidence_basis) {
+              adviceLines.push(`    Evidence: ${a.evidence_basis}`);
+            }
+          });
+        } else {
+          // Legacy single-advice format
+          adviceLines.push(`Impact review (${verdict}): ${entry.suggested_change || ""}`);
+          if (entry.evidence_basis) adviceLines.push(`Evidence: ${entry.evidence_basis}`);
+        }
+
+        const note = adviceLines.filter(Boolean).join("\n");
         const existingNotes = item.notes || "";
         return {
           ...item,
           reviewNeeded: true,
-          lastImpactVerdict: result?.verdict || "",
+          lastImpactVerdict: verdict,
           notes: existingNotes ? `${existingNotes}\n\n${note}` : note
         };
       })
@@ -613,7 +631,7 @@ function App() {
 
   if (route.view === "new") {
     return <>
-      <StartScreen onStart={handleStart} onImport={() => setShowImport(true)} />
+      <StartScreen onStart={handleStart} onImport={() => setShowImport(true)} onRoadmaps={() => go("/roadmaps")} />
       <TemplatePicker open={showTplPicker} onClose={() => setShowTplPicker(false)} onPick={handlePickTemplate} />
       <ImportModal open={showImport} onClose={() => setShowImport(false)} onLoad={handleImport} />
       <Toast on={toast.on} message={toast.msg} />
@@ -672,6 +690,38 @@ function App() {
             />
           </div>
           <div className="topbar-spacer" />
+
+          {/* Group 1 — view / help (lowest priority) */}
+          <button
+            className={`btn btn-ghost btn-sm ${tweaks.showCoachRail ? "pressed" : ""}`}
+            onClick={() => setTweak("showCoachRail", !tweaks.showCoachRail)}
+            title="Toggle Roadmap Coach (left rail)"
+          >
+            <Icon name="lightbulb" size={14} /> Coach
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowGloss(true)} title="Open glossary">
+            <Icon name="book" size={14} /> Glossary
+          </button>
+
+          <div className="topbar-divider" aria-hidden="true" />
+
+          {/* Group 2 — file ops (infrequent) */}
+          <button className="btn btn-ghost btn-sm" onClick={() => go("/roadmaps/new")} title="Create a new roadmap">
+            <Icon name="plus" size={14} /> New
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={() => go(`/roadmaps/${encodeURIComponent(route.id)}/import`)} title="Import roadmap JSON">
+            <Icon name="import" size={14} /> Import
+          </button>
+          <button className="btn btn-ghost btn-sm" onClick={doExport} title="Export current roadmap as JSON">
+            <Icon name="download" size={14} /> Export
+          </button>
+
+          <div className="topbar-divider" aria-hidden="true" />
+
+          {/* Group 3 — edit (frequent) */}
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowStructure(true)} title="Edit layers & bands">
+            <Icon name="edit" size={14} /> Structure
+          </button>
           <button
             className="btn btn-ghost btn-sm"
             onClick={undo}
@@ -680,32 +730,22 @@ function App() {
           >
             <Icon name="undo" size={14} /> Undo
           </button>
+
+          <div className="topbar-divider" aria-hidden="true" />
+
+          {/* Group 4 — signature feature + primary CTA */}
           <button
-            className={`btn btn-ghost btn-sm ${tweaks.showCoachRail ? "pressed" : ""}`}
-            onClick={() => setTweak("showCoachRail", !tweaks.showCoachRail)}
-            title="Toggle Roadmap Coach (left rail)"
+            className="btn btn-feature btn-sm"
+            onClick={() => setShowImpactAdvisor(true)}
+            title="Assess news impact against this roadmap"
           >
-            <Icon name="lightbulb" size={14} /> Coach
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowGloss(true)}>
-            <Icon name="book" size={14} /> Glossary
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowStructure(true)}>
-            <Icon name="edit" size={14} /> Structure
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowImpactAdvisor(true)}>
             <Icon name="search" size={14} /> News Impact
           </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => go(`/roadmaps/${encodeURIComponent(route.id)}/import`)}>
-            <Icon name="import" size={14} /> Import
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={doExport}>
-            <Icon name="download" size={14} /> Export JSON
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => go("/roadmaps/new")}>
-            <Icon name="undo" size={14} /> New
-          </button>
-          <button className="btn btn-accent btn-sm" onClick={() => setItemModal({ open: true, item: null, prefill: null })}>
+          <button
+            className="btn btn-accent btn-sm"
+            onClick={() => setItemModal({ open: true, item: null, prefill: null })}
+            title="Add a new roadmap item"
+          >
             <Icon name="plus" size={14} /> Add item
           </button>
         </header>

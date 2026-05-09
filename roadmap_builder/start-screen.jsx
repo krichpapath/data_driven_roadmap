@@ -3,7 +3,7 @@
 // Three entry points: pick template, blank, import JSON.
 // Hero side teaches the DDRM concept with a visual mini-grid.
 
-function StartScreen({ onStart, onImport }) {
+function StartScreen({ onStart, onImport, onRoadmaps }) {
   const [hover, setHover] = React.useState(null);
 
   return (
@@ -14,6 +14,9 @@ function StartScreen({ onStart, onImport }) {
           <div className="brand-name">DDRM Builder<em>beta</em></div>
         </div>
         <div className="row" style={{ gap: 6, fontSize: 12.5, color: "var(--ink-muted)" }}>
+          <button className="btn btn-ghost btn-sm" onClick={onRoadmaps}>
+            <Icon name="grid" size={13} /> Your roadmaps
+          </button>
           <a className="btn btn-ghost btn-sm" href="#docs">Docs</a>
           <a className="btn btn-ghost btn-sm" href="#examples">Examples</a>
         </div>

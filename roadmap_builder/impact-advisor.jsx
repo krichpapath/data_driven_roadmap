@@ -108,6 +108,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [result, setResult] = React.useState(null);
   const [selected, setSelected] = React.useState(new Set());
   const [actionFilter, setActionFilter] = React.useState("all"); // all | revise | adjust | maintain
+  const [expertFilter, setExpertFilter] = React.useState("all"); // all | <PESTLE role>
   const [showReasoning, setShowReasoning] = React.useState(false);
 
   React.useEffect(() => {
@@ -161,21 +162,63 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   if (!open) return null;
 
   const guidance = result?.guidance || {};
-  const itemGuidance = guidance.item_guidance || [];
+  const expertAdvicesMap = guidance.expert_advices || {};
+  const expertsActive = guidance.experts_active || [];
   const matches = result?.roadmap_matches || [];
   const evidence = result?.evidence || [];
   const selectedCount = selected.size;
 
-  // Action filter counts + filtered list
-  const actionCounts = itemGuidance.reduce((acc, item) => {
-    const t = actionTone(item.action);
-    acc[t] = (acc[t] || 0) + 1;
-    acc.all = (acc.all || 0) + 1;
+  // Build per-item entries with stacked advices.
+  // Prefer new expert_advices shape; fall back to legacy item_guidance for older backends.
+  // (Plain compute, not useMemo — must run after the early `if (!open)` return above,
+  //  so calling a hook here would violate the hooks rule.)
+  const expertEntries = Object.values(expertAdvicesMap);
+  const itemEntries = expertEntries.length > 0
+    ? expertEntries
+    : (guidance.item_guidance || []).map(g => ({
+        item_id: g.item_id,
+        item_name: g.item_name,
+        layer: g.layer,
+        time_bands: g.time_bands || [],
+        matched_drivers: g.matched_drivers || [],
+        advices: [{
+          role: "Advisor",
+          action: g.action,
+          advice: g.suggested_change || "",
+          evidence_keypoint: g.evidence_keypoint || null,
+        }],
+      }));
+
+  // Action filter counts: an item counts toward an action if ANY of its advices uses that action.
+  const actionCounts = itemEntries.reduce((acc, item) => {
+    acc.all += 1;
+    const tones = new Set((item.advices || []).map(a => actionTone(a.action)));
+    tones.forEach(t => { acc[t] = (acc[t] || 0) + 1; });
     return acc;
   }, { all: 0, revise: 0, adjust: 0, maintain: 0 });
-  const filteredGuidance = actionFilter === "all"
-    ? itemGuidance
-    : itemGuidance.filter(i => actionTone(i.action) === actionFilter);
+
+  // Per-expert filter counts.
+  const expertCounts = itemEntries.reduce((acc, item) => {
+    (item.advices || []).forEach(a => {
+      if (a.role) acc[a.role] = (acc[a.role] || 0) + 1;
+    });
+    return acc;
+  }, {});
+
+  // Apply both filters. expertFilter narrows the visible advice cards inside an item too.
+  const filteredEntries = itemEntries
+    .map(item => {
+      const advices = (item.advices || []).filter(a => {
+        if (expertFilter !== "all" && a.role !== expertFilter) return false;
+        return true;
+      });
+      return { ...item, advices };
+    })
+    .filter(item => {
+      if (item.advices.length === 0) return false;
+      if (actionFilter === "all") return true;
+      return item.advices.some(a => actionTone(a.action) === actionFilter);
+    });
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -194,10 +237,12 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const filterPillSelect = (filterKey, e) => {
     setActionFilter(filterKey);
     if (e.shiftKey) {
-      // Shift+click bulk-select matching items
+      // Shift+click bulk-select items where any advice matches
       const ids = filterKey === "all"
-        ? itemGuidance.map(i => i.item_id)
-        : itemGuidance.filter(i => actionTone(i.action) === filterKey).map(i => i.item_id);
+        ? itemEntries.map(i => i.item_id)
+        : itemEntries
+            .filter(i => (i.advices || []).some(a => actionTone(a.action) === filterKey))
+            .map(i => i.item_id);
       setSelected(new Set(ids));
     }
   };
@@ -231,8 +276,17 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
       }
       const data = await res.json();
       setResult(data.result);
-      const ids = new Set((data.result.guidance?.item_guidance || []).map(i => i.item_id));
+      // Pre-select all items that received advice (new shape first, legacy fallback second).
+      const expertMap = data.result.guidance?.expert_advices || {};
+      const expertIds = Object.keys(expertMap);
+      const ids = new Set(
+        expertIds.length > 0
+          ? expertIds
+          : (data.result.guidance?.item_guidance || []).map(i => i.item_id)
+      );
       setSelected(ids);
+      setExpertFilter("all");
+      setActionFilter("all");
     } catch (e) {
       setError(friendlyAdvisorError(e, e.status));
     } finally {
@@ -250,7 +304,8 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   };
 
   const applySelected = () => {
-    const picked = itemGuidance.filter(item => selected.has(item.item_id));
+    // Pass entries containing all advices for selected items. Caller decides how to merge into notes.
+    const picked = itemEntries.filter(item => selected.has(item.item_id));
     onApplyGuidance(picked, result);
   };
 
@@ -548,12 +603,50 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                 <div className="advisor-section-title">
                   <div>
                     <div className="rail-eyebrow">Matched roadmap items</div>
-                    <h2><span className="num">{matches.length}</span> related items</h2>
+                    <h2><span className="num">{itemEntries.length}</span> reviewed item{itemEntries.length === 1 ? "" : "s"}</h2>
                   </div>
-                  <button className="btn btn-sm" onClick={() => setSelected(new Set(itemGuidance.map(i => i.item_id)))}>
+                  <button className="btn btn-sm" onClick={() => setSelected(new Set(itemEntries.map(i => i.item_id)))}>
                     Select all
                   </button>
                 </div>
+
+                {expertsActive.length > 0 && (
+                  <div className="advisor-match-filters advisor-expert-filters" role="tablist" aria-label="Filter by expert">
+                    <button
+                      role="tab"
+                      aria-selected={expertFilter === "all"}
+                      className={`advisor-match-filter ${expertFilter === "all" ? "on" : ""}`}
+                      onClick={() => setExpertFilter("all")}
+                      title="Show all experts"
+                    >
+                      <Icon name="filter" size={11} />
+                      <span>All experts</span>
+                      <span className="advisor-match-filter-count num">{expertsActive.length}</span>
+                    </button>
+                    {expertsActive.map(role => {
+                      const col = pestleColor(role);
+                      const isOn = expertFilter === role;
+                      return (
+                        <button
+                          key={role}
+                          role="tab"
+                          aria-selected={isOn}
+                          className={`advisor-match-filter ${isOn ? "on" : ""}`}
+                          onClick={() => setExpertFilter(isOn ? "all" : role)}
+                          title={`Show only ${role} expert`}
+                          style={isOn ? {
+                            background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
+                            color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
+                            borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`,
+                          } : undefined}
+                        >
+                          <span>{role}</span>
+                          <span className="advisor-match-filter-count num">{expertCounts[role] || 0}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="advisor-match-filters" role="tablist" aria-label="Filter by action">
                   {[
@@ -579,17 +672,18 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                 </div>
 
                 <div className="advisor-match-grid">
-                  {filteredGuidance.map(item => {
-                    const tone = actionTone(item.action);
+                  {filteredEntries.map(item => {
+                    // Worst-action drives card tone (Revise > Adjust > Maintain).
+                    const tones = new Set((item.advices || []).map(a => actionTone(a.action)));
+                    const tone = tones.has("revise") ? "revise" : tones.has("adjust") ? "adjust" : "maintain";
                     const isSel = selected.has(item.item_id);
                     return (
                       <article
                         key={item.item_id}
                         className={`advisor-card advisor-card--v2 advisor-card--clickable tone-${tone} ${isSel ? "selected" : ""}`}
                         onClick={(e) => {
-                          // Skip toggle when click originated on disclosure summary or interactive child
                           const t = e.target;
-                          if (t.closest("summary") || t.closest("a")) return;
+                          if (t.closest("summary") || t.closest("a") || t.closest("button")) return;
                           toggleSelected(item.item_id);
                         }}
                         role="button"
@@ -607,7 +701,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                         <div className="advisor-card-body">
                           <div className="advisor-card-head">
                             <h3 title={item.item_name}>{item.item_name}</h3>
-                            <span className={`advisor-action-tag ${tone}`} title={item.action}>
+                            <span className={`advisor-action-tag ${tone}`} title={`Worst action: ${actionLabel(tone)}`}>
                               <Icon name={actionIcon(tone)} size={11} />
                               <span>{actionLabel(tone)}</span>
                             </span>
@@ -628,24 +722,48 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                               );
                             })}
                           </div>
-                          <div className="advisor-labelled advisor-labelled--advice">
-                            <label>LLM advice</label>
-                            <p>{item.suggested_change}</p>
+
+                          {/* Stacked advice cards — one per expert who weighed in */}
+                          <div className="advisor-expert-stack">
+                            {item.advices.map((a, idx) => {
+                              const aTone = actionTone(a.action);
+                              const col = pestleColor(a.role);
+                              return (
+                                <div key={`${a.role}-${idx}`} className={`advisor-expert-advice tone-${aTone}`} style={{
+                                  borderLeft: `3px solid ${col}`,
+                                }}>
+                                  <div className="advisor-expert-advice-head">
+                                    <span className="advisor-expert-role" style={{
+                                      background: `color-mix(in oklch, ${col} 22%, var(--surface))`,
+                                      color: `color-mix(in oklch, ${col} 90%, var(--ink))`,
+                                      borderColor: `color-mix(in oklch, ${col} 50%, var(--line))`,
+                                    }}>{a.role} expert</span>
+                                  </div>
+                                  <p className="advisor-expert-advice-text">{a.advice}</p>
+                                  {a.evidence_keypoint && a.evidence_keypoint.sentence && (
+                                    <details className="advisor-labelled--collapse" onClick={(e) => e.stopPropagation()}>
+                                      <summary>Evidence cited{a.evidence_keypoint.id ? ` · ${a.evidence_keypoint.id}` : ""}</summary>
+                                      <p>{evidenceSnippet(a.evidence_keypoint.sentence)}</p>
+                                    </details>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                          <div className="advisor-labelled">
-                            <label>Why matched</label>
-                            <p>{item.reason}</p>
-                          </div>
-                          <details className="advisor-labelled advisor-labelled--collapse" onClick={(e) => e.stopPropagation()}>
-                            <summary>Evidence used</summary>
-                            <p>{evidenceSnippet(item.evidence_basis)}</p>
-                          </details>
                         </div>
                       </article>
                     );
                   })}
-                  {filteredGuidance.length === 0 && actionFilter !== "all" && (
-                    <div className="advisor-filter-empty">No <strong>{actionFilter}</strong> items in current matches.</div>
+                  {filteredEntries.length === 0 && itemEntries.length > 0 && (
+                    <div className="advisor-filter-empty">
+                      No items match current filters
+                      {actionFilter !== "all" && <> · action: <strong>{actionFilter}</strong></>}
+                      {expertFilter !== "all" && <> · expert: <strong>{expertFilter}</strong></>}
+                      .
+                    </div>
+                  )}
+                  {itemEntries.length === 0 && (
+                    <div className="advisor-filter-empty">No matched roadmap items in this analysis.</div>
                   )}
                 </div>
               </section>

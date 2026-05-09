@@ -74,10 +74,19 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 .topbar {
   grid-area: topbar;
-  display: flex; align-items: center; gap: 14px;
+  display: flex; align-items: center; gap: 6px;
   padding: 0 18px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
+}
+.topbar > .crumbs { margin-right: 8px; }
+.topbar-spacer { flex: 1; }
+.topbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  margin: 0 6px;
+  flex-shrink: 0;
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
@@ -112,8 +121,6 @@ input, textarea, select { font: inherit; color: inherit; }
 }
 .title-input:hover { background: var(--surface-2); }
 .title-input:focus { background: var(--surface-2); box-shadow: 0 0 0 2px var(--accent-soft); }
-
-.topbar-spacer { flex: 1; }
 
 .crumbs { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--ink-muted); }
 .crumbs .sep { color: var(--ink-faint); }
@@ -152,6 +159,24 @@ input, textarea, select { font: inherit; color: inherit; }
   border-color: var(--accent);
 }
 .btn-accent:hover { background: var(--accent-ink); }
+.btn-feature {
+  background: color-mix(in oklch, var(--accent) 10%, var(--surface));
+  color: var(--accent-ink, var(--accent));
+  border: 1px solid color-mix(in oklch, var(--accent) 50%, var(--line));
+  font-weight: 600;
+  position: relative;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+.btn-feature:hover {
+  background: color-mix(in oklch, var(--accent) 18%, var(--surface));
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 18%, transparent);
+}
+.btn-feature:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--accent) 35%, transparent);
+}
+.btn-feature .icon { color: var(--accent); }
 .btn-sm { padding: 5px 10px; font-size: 12px; }
 .btn-lg { padding: 10px 16px; font-size: 14px; }
 .btn-icon { padding: 6px 8px; }
@@ -1913,6 +1938,55 @@ input, textarea, select { font: inherit; color: inherit; }
   font-size: 12px;
   color: var(--ink-muted);
   line-height: 1.5;
+}
+
+/* ── Per-PESTLE expert workshop: stacked advice cards ─── */
+.advisor-expert-filters {
+  margin-bottom: 8px;
+}
+.advisor-expert-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+.advisor-expert-advice {
+  background: var(--surface-2, var(--surface));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.advisor-expert-advice.tone-revise   { background: color-mix(in oklch, var(--c-rose) 6%, var(--surface)); }
+.advisor-expert-advice.tone-adjust   { background: color-mix(in oklch, var(--c-amber) 6%, var(--surface)); }
+.advisor-expert-advice.tone-maintain { background: color-mix(in oklch, var(--c-green) 5%, var(--surface)); }
+.advisor-expert-advice-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.advisor-expert-role {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  white-space: nowrap;
+}
+.advisor-expert-advice-text {
+  margin: 0;
+  color: var(--ink);
+}
+.advisor-expert-advice .advisor-labelled--collapse {
+  margin-top: 6px;
+  padding-top: 6px;
 }
 
 /* ── Reduced motion ───────────────────────────────────── */

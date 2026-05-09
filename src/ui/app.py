@@ -18,7 +18,7 @@ from core.pestle import classify_pestle
 from core.sentiment import classify_sentiment
 from core.impact import aggregate_by_pestle, overall_impact, ddrm_status, point_impact
 from core.roadmap_matcher import match_roadmap_items
-from core.guidance import generate_guidance
+from core.guidance import generate_guidance, generate_expert_guidance
 from config import KEYPOINTS_MAX, PESTLE_WEIGHTS, DDRM_THRESHOLDS
 
 
@@ -219,7 +219,7 @@ def _parse_roadmap_json(roadmap_json: str) -> dict | None:
     return roadmap
 
 
-def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str = "") -> dict:
+def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str = "", use_expert_workshop: bool = True) -> dict:
     title, text = _load_input(input_text, input_mode, input_file)
 
     keypoints = extract_keypoints_rich(text, max_points=int(max_points))
@@ -254,6 +254,7 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, 
             signed_contribution = 0.0
 
         evidence.append({
+            "id": f"K{idx}",
             "rank": idx,
             "sentence": sentence,
             "relevance": relevance,
@@ -302,7 +303,10 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, 
         matches = match_roadmap_items(result, roadmap)
         result["roadmap_title"] = roadmap.get("title") or "Untitled roadmap"
         result["roadmap_matches"] = matches
-        result["guidance"] = generate_guidance(result, matches)
+        if use_expert_workshop:
+            result["guidance"] = generate_expert_guidance(result, roadmap, matches)
+        else:
+            result["guidance"] = generate_guidance(result, matches)
 
     return result
 
