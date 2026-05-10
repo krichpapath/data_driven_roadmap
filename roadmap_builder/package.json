@@ -1,0 +1,14 @@
+{
+  "name": "ddrm-roadmap-builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser UI for the DDRM Roadmap Builder. No bundler at runtime; this package.json exists only to host Vitest unit tests against pure helpers in lib/exports.js.",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  }
+}

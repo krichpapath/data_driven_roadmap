@@ -7,8 +7,15 @@
 # =============================================================================
 
 # --- Local-only folders -----------------------------------------------------
-# Internal university reports, drafts, .tex sources, templates
-docs/
+# Internal university reports, drafts, .tex sources, templates.
+# Developer-facing handbook files are tracked explicitly via the !-rules below.
+docs/*
+docs/**/*
+!docs/ARCHITECTURE.md
+!docs/PIPELINE.md
+!docs/FRONTEND.md
+!docs/CONTRIBUTING.md
+!docs/TESTING.md
 document/
 
 # Third-party research papers (copyright concerns)
@@ -118,3 +125,12 @@ $RECYCLE.BIN/
 reorganize.ps1
 REORGANIZATION_PLAN.md
 GIT_PUSH_GUIDE.md
+
+# --- Personal scratch ------------------------------------------------------
+FUTUREPLAN.md
+
+# --- Frontend (Vitest) ------------------------------------------------------
+# node_modules is huge and reproducible from package.json + package-lock.json.
+# Lock file IS tracked so test versions stay pinned across machines.
+node_modules/
+**/node_modules/

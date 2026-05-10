@@ -130,6 +130,11 @@ function useToast(durationMs = TOAST_DURATION_MS) {
 // Build CSV/JSON/text payloads for the "export selection" modal.
 // Kept module-level (pure) so they're trivially testable and don't capture
 // stale closures from the App component.
+//
+// TEST MIRROR: `roadmap_builder/lib/exports.js` carries an ESM copy of these
+// helpers + `formatGuidanceNote`, `titleOf`, `isValidRoadmapState`, `parseRoute`.
+// Vitest imports the mirror. If you change behaviour here, update the mirror
+// or tests will silently lock the OLD behaviour.
 function csvEscape(value) {
   return `"${String(value || "").replace(/"/g, '""')}"`;
 }

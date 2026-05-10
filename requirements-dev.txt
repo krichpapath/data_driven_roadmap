@@ -1,0 +1,7 @@
+# Dev / test-only dependencies. Install with:
+#   pip install -r requirements-dev.txt
+#
+# Production deps stay in requirements.txt. Keeping these split avoids shipping
+# pytest into a deploy container.
+
+pytest>=8.0
