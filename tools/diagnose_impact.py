@@ -18,7 +18,7 @@ Also prints a "leak audit": where signal vanishes (neutral sentiment,
 sub-tolerance magnitude, dropped driver, etc).
 
 Run:
-    python tools/diagnose_impact.py testdata/news_01_us_china_chip_war.txt
+    python tools/diagnose_impact.py testdata/adjust_01_chip_export_controls.txt
     python tools/diagnose_impact.py testdata/*.txt
 """
 
