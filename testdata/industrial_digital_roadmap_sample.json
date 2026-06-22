@@ -2,17 +2,17 @@
   "title": "Digital Industry - Technology Roadmap",
   "templateId": "industrial-digital-sample",
   "bands": [
-    { "id": "b1", "label": "2024-2026", "tag": "Short term" },
-    { "id": "b2", "label": "2027-2030", "tag": "Mid term" },
-    { "id": "b3", "label": "Beyond 2030", "tag": "Long term" }
+    { "id": "b1", "label": "2024-2026", "tag": "Short term", "color": "var(--c-amber)" },
+    { "id": "b2", "label": "2027-2030", "tag": "Mid term", "color": "var(--c-rose)" },
+    { "id": "b3", "label": "Beyond 2030", "tag": "Long term", "color": "var(--c-violet)" }
   ],
   "categories": [
-    { "id": "bd", "label": "Business Drivers", "sub": "External forces shaping the industry" },
-    { "id": "st", "label": "Strategic Targets", "sub": "What we want to achieve" },
-    { "id": "dp", "label": "Products", "sub": "Things we ship" },
-    { "id": "rd", "label": "R&D Programs", "sub": "What we research" },
-    { "id": "inf", "label": "Infrastructure", "sub": "Underlying capability" },
-    { "id": "res", "label": "Resources", "sub": "People, data, skills" }
+    { "id": "bd", "label": "Business Drivers", "sub": "External forces shaping the industry", "color": "var(--c-blue)" },
+    { "id": "st", "label": "Strategic Targets", "sub": "What we want to achieve", "color": "var(--c-teal)" },
+    { "id": "dp", "label": "Products", "sub": "Things we ship", "color": "var(--c-violet)" },
+    { "id": "rd", "label": "R&D Programs", "sub": "What we research", "color": "var(--c-amber)" },
+    { "id": "inf", "label": "Infrastructure", "sub": "Underlying capability", "color": "var(--c-green)" },
+    { "id": "res", "label": "Resources", "sub": "People, data, skills", "color": "var(--c-slate)" }
   ],
   "items": [
     {
