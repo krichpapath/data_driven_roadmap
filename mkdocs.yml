@@ -57,6 +57,7 @@ markdown_extensions:
 nav:
   - Start here: index.md
   - Getting started:
+      - 0. Set up a new computer: getting-started/prerequisites.md
       - 1. Install everything: getting-started/installation.md
       - 2. Run the app: getting-started/first-run.md
       - 3. Your first assessment: getting-started/first-assessment.md

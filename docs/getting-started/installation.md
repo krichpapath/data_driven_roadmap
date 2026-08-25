@@ -1,7 +1,11 @@
 # 1. Install everything
 
-This page takes you from a clean machine to a working checkout. Budget about
-30 minutes, most of which is downloading.
+This page takes you from a machine that already has Python and Git to a working
+checkout. Budget about 30 minutes, most of which is downloading.
+
+!!! tip "Brand-new computer?"
+    If Python and Git are not installed yet, do
+    [0. Set up a new computer](prerequisites.md) first, then come back here.
 
 ---
 
@@ -32,13 +36,31 @@ wherever this guide says `python`.
 
 ## Step 1 — Clone the repository
 
+There are two repositories. Use the one you have access to.
+
+**Development repository** — where the working history lives:
+
+```bash
+git clone https://github.com/krichpapath/data_driven_roadmap.git
+```
+
+```bash
+cd data_driven_roadmap
+```
+
+**Course submission repository** — the graded snapshot:
+
 ```bash
 git clone https://github.com/ComSciThammasatU/2568-2-cs403-final-submission-68-1_22_nrc-r1.git
 ```
 
-```bash
-cd 2568-2-cs403-final-submission-68-1_22_nrc-r1
-```
+!!! warning "Some folders are deliberately not in git"
+    `document/`, `references/`, and `archive/` are excluded by `.gitignore` —
+    they hold university reports, third-party research papers, and old
+    snapshots. Cloning gives you the **code and this handbook**, not those. If
+    you need the report material, copy it across separately.
+
+    `.env` is also excluded, by design. See Step 5.
 
 ---
 

@@ -4,7 +4,10 @@ Welcome. You have just inherited this project. This handbook is written for a
 student who has never seen the codebase before, so nothing is assumed except
 that you can open a terminal and you know a little Python.
 
-Read this page, then go to [Install everything](getting-started/installation.md).
+Read this page, then go to [Set up a new computer](getting-started/prerequisites.md)
+if the machine is bare, or straight to
+[Install everything](getting-started/installation.md) if you already have
+Python and Git.
 
 ---
 
@@ -80,6 +83,11 @@ That is it. There is no database, no Docker, no build step, no bundler.
 ## Where to go next
 
 <div class="grid cards" markdown>
+
+-   **Starting from a bare machine?**
+
+    [0. Set up a new computer](getting-started/prerequisites.md) installs
+    Python, Git, and an editor from scratch.
 
 -   **Just want it running?**
 
