@@ -5,6 +5,11 @@ const ADVISOR_MODEL_KEY = "ddrm_advisor_llm_model";
 const DEFAULT_ADVISOR_API = "http://127.0.0.1:7875/api/recommend";
 const DEFAULT_ADVISOR_MODEL = "gpt-4o-mini";
 const EVIDENCE_SNIPPET_MAX = 220;
+// Mirrors KEYPOINTS_MIN / KEYPOINTS_MAX in src/config.py. The impact bands are
+// calibrated at KEYPOINTS_MAX, so asking for fewer points shifts verdicts.
+// The backend clamps to this range anyway; keep the two in sync if config.py changes.
+const KEYPOINTS_MIN = 3;
+const KEYPOINTS_MAX = 7;
 
 const ADVISOR_MODEL_OPTIONS = [
   { value: "gpt-4o",        label: "GPT-4o — best quality, slower",         tier: "premium" },
@@ -137,7 +142,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [inputMode, setInputMode] = React.useState("Text");
   const [newsText, setNewsText] = React.useState("");
   const [fileName, setFileName] = React.useState("");
-  const [maxPoints, setMaxPoints] = React.useState(5);
+  const [maxPoints, setMaxPoints] = React.useState(KEYPOINTS_MAX);
   const [busy, setBusy] = React.useState(false);
   const [elapsed, setElapsed] = React.useState(0);
   const [error, setError] = React.useState("");
@@ -446,10 +451,10 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
             <input
               className="field-input"
               type="number"
-              min="3"
-              max="10"
+              min={KEYPOINTS_MIN}
+              max={KEYPOINTS_MAX}
               value={maxPoints}
-              onChange={e => setMaxPoints(Number(e.target.value || 5))}
+              onChange={e => setMaxPoints(Number(e.target.value || KEYPOINTS_MAX))}
             />
           </div>
 

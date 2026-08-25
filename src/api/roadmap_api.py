@@ -17,12 +17,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ui.app import run_pipeline  # noqa: E402  (import after sys.path mutation)
+from config import KEYPOINTS_MIN, KEYPOINTS_MAX  # noqa: E402
 
 VALID_INPUT_MODES = {"URL", "Text"}
 DEFAULT_INPUT_MODE = "Text"
-MIN_KEYPOINTS = 3
-MAX_KEYPOINTS = 10
-DEFAULT_KEYPOINTS = 5
+# Keypoint bounds come from config.py — the tolerance bands and DDRM thresholds
+# are calibrated against KEYPOINTS_MAX, so a different default here silently
+# shifts every verdict. Do not re-declare them.
+DEFAULT_KEYPOINTS = KEYPOINTS_MAX
 HOST = "127.0.0.1"
 PORT = 7875
 
@@ -66,7 +68,7 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
             input_text=req.input_text,
             input_mode=mode,
             input_file=None,
-            max_points=_clamp(int(req.max_points), MIN_KEYPOINTS, MAX_KEYPOINTS),
+            max_points=_clamp(int(req.max_points), KEYPOINTS_MIN, KEYPOINTS_MAX),
             roadmap_json=json.dumps(req.roadmap, ensure_ascii=False),
             use_expert_workshop=bool(req.use_expert_workshop),
         )

@@ -54,13 +54,13 @@ This is the central reference. Keep it open while reading code.
 
 ### `POST /api/recommend` → `RecommendResponse`
 
-Request ([`src/api/roadmap_api.py`](../src/api/roadmap_api.py)):
+Request (`src/api/roadmap_api.py`):
 
 ```json
 {
   "input_text": "<news URL or article body>",
   "input_mode": "URL" | "Text",
-  "max_points": 3..10,
+  "max_points": 3..7,               // KEYPOINTS_MIN..KEYPOINTS_MAX from config.py
   "roadmap":   { "title": "...", "categories": [...], "bands": [...], "items": [...] },
   "use_expert_workshop": true
 }
@@ -138,7 +138,8 @@ change. Legacy v1 (single-state key `"ddrm_v1"`) auto-migrates on load.
 |------|------------------|
 | `config.py` | All tunables: models, PESTLE labels, weights, tolerance bands, thresholds. **Edit here, nothing else.** |
 | `api/roadmap_api.py` | FastAPI app. Single `POST /api/recommend` endpoint. CORS open. |
-| `ui/app.py` | `run_pipeline()` orchestrator + Gradio dev UI. The advisor API delegates here. |
+| `ui/app.py` | `run_pipeline()` orchestrator. UI-framework free, so the advisor API delegates here without pulling in gradio/plotly/pandas. |
+| `ui/gradio_app.py` | Optional Gradio dev UI over `run_pipeline()`. Not needed to run the delivered app. |
 | `core/extractor.py` | URL → article text. 4-strategy chain (trafilatura → newspaper3k → readability → bs4). |
 | `core/keypoints.py` | Top-N most relevant + diverse sentences via sentence-transformers + MMR. |
 | `core/pestle.py` | Zero-shot NLI classifier with verbalized hypotheses → 6 PESTLE labels (or "Unclassified"). |
