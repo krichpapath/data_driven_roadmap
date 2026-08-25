@@ -1,5 +1,4 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/R0mj41T3)
-**<ins>Note</ins>: Students must update this `README.md` file to be an installation manual or a README file for their own CS403 projects.**
 
 **รหัสโครงงาน:** 68-1_22_nrc-r1
 
@@ -12,327 +11,148 @@
 **ผู้จัดทำโครงงาน:**
 1. นายกฤชประพัตธ์ เลิศประเสริฐภากร  `6509681083`  `krichpapath.ler@dome.tu.ac.th`
 
-Manual / Instructions for your projects starts here !
+---
 
-# Drivers and Trends Impact Assessment Mechanism for Dynamic Technology Roadmap Status Monitoring
+# Roadmap Review Application
 
-This repository contains the final CS403 project submission for project `68-1_22_nrc-r1`.
+Paste a news article, get back whether your technology roadmap still holds:
+**Maintain**, **Adjust**, or **Revise** — with the evidence behind the verdict.
 
-The project is a Python-based prototype for monitoring the status of a technology roadmap. It accepts news text or a news URL, extracts key evidence, classifies the evidence by PESTLE category, estimates impact direction and severity, matches the result to roadmap items, and recommends one of three roadmap review statuses: `Maintain`, `Adjust`, or `Revise`.
+The pipeline extracts key sentences, sorts them into PESTLE categories, scores
+sentiment per category, computes a severity from 0.00 to 1.00, matches affected
+roadmap items, and suggests a review action. Final judgment stays with the
+roadmap owner.
 
-The system includes:
+> 📖 **New here? Read the [Developer Handbook](docs/index.md)** — it covers
+> everything below in depth, plus how the code actually works.
 
-- a FastAPI backend for roadmap impact assessment,
-- a browser-based roadmap builder interface,
-- deterministic fallback guidance when no LLM API key is configured,
-- optional LLM-powered expert guidance through OpenRouter,
-- automated Python and frontend tests.
+---
 
-## Directory Tree
+## Requirements
 
-```text
-.
-|-- README.md
-|-- demo/
-|   `-- 68-1_CS403_68-1_22_nrc-r1_demo_link.txt
-|-- final_reports/
-|   |-- 68-1_CS403_68-1_22_nrc-r1.pdf
-|   |-- 68-1_CS403_68-1_22_nrc-r1_abstract_en.txt
-|   `-- 68-1_CS403_68-1_22_nrc-r1_abstract_th.txt
-|-- mkdocs.yml
-|-- docs/
-|   |-- index.md                  <- developer handbook starts here
-|   |-- getting-started/
-|   |   |-- installation.md
-|   |   |-- first-run.md
-|   |   `-- first-assessment.md
-|   |-- guide/
-|   |   |-- the-problem.md
-|   |   |-- how-it-works.md
-|   |   |-- scoring.md
-|   |   |-- codebase-tour.md
-|   |   |-- common-tasks.md
-|   |   `-- troubleshooting.md
-|   |-- research/
-|   |   `-- background.md
-|   |-- ARCHITECTURE.md
-|   |-- CONTRIBUTING.md
-|   |-- FRONTEND.md
-|   |-- PIPELINE.md
-|   `-- TESTING.md
-|-- roadmap_builder/
-|   |-- index.html
-|   |-- app.jsx
-|   |-- data.jsx
-|   |-- impact-advisor.jsx
-|   |-- modals.jsx
-|   |-- roadmap-grid.jsx
-|   |-- start-screen.jsx
-|   |-- styles.css
-|   |-- tweaks-panel.jsx
-|   |-- primitives.jsx
-|   |-- coach-rail.jsx
-|   |-- lib/
-|   |   `-- exports.js
-|   |-- __tests__/
-|   |   |-- exports.test.js
-|   |   `-- reducers.test.js
-|   |-- package.json
-|   `-- package-lock.json
-|-- src/
-|   |-- __init__.py
-|   |-- config.py
-|   |-- api/
-|   |   `-- roadmap_api.py
-|   |-- core/
-|   |   |-- __init__.py
-|   |   |-- extractor.py
-|   |   |-- guidance.py
-|   |   |-- impact.py
-|   |   |-- keypoints.py
-|   |   |-- pestle.py
-|   |   |-- roadmap_matcher.py
-|   |   |-- router.py
-|   |   `-- sentiment.py
-|   `-- ui/
-|       |-- __init__.py
-|       |-- app.py
-|       |-- gradio_app.py
-|       `-- keypoints_lab.py
-|-- testdata/
-|   |-- README.md
-|   |-- industrial_digital_roadmap_sample.json
-|   `-- sample news scenario files
-|-- tests/
-|   |-- conftest.py
-|   |-- test_guidance.py
-|   |-- test_impact.py
-|   |-- test_keypoints.py
-|   `-- test_roadmap_matcher.py
-|-- tools/
-|   |-- diagnose_impact.py
-|   `-- e2e_check.py
-|-- requirements.txt
-|-- requirements-dev.txt
-|-- CHANGELOG.md
-|-- IMPACT_VALUES_GUIDE.md
-`-- LICENSE
-```
-
-## Required Software
-
-Install the following software before running the project.
-
-| Software | Purpose | Recommended version |
+| Software | Version | Needed for |
 | --- | --- | --- |
-| Git | Clone the repository | Latest stable version |
-| Python | Run the backend and impact assessment pipeline | Python 3.10 or later |
-| pip | Install Python packages | Included with Python |
-| Web browser | Open the roadmap builder UI | Chrome, Edge, Firefox, or Safari |
-| Node.js and npm | Run frontend tests only | Node.js 18 or later |
+| Python | 3.10+ | Everything |
+| Git | any | Cloning |
+| Web browser | any modern | The UI |
+| Node.js | 18+ | Frontend tests only (optional) |
 
-Node.js is not required for normal application use. It is only required for running the frontend test suite in `roadmap_builder/`.
+Disk: ~2 GB of Python packages, plus ~2.5 GB of AI models downloaded on first run.
 
-## Installation and Setup
+---
 
-Follow these steps from a new machine or clean folder.
-
-### 1. Clone the repository
+## Install
 
 ```bash
 git clone https://github.com/ComSciThammasatU/2568-2-cs403-final-submission-68-1_22_nrc-r1.git
+```
+
+```bash
 cd 2568-2-cs403-final-submission-68-1_22_nrc-r1
 ```
 
-### 2. Create a Python virtual environment
+Create and activate a virtual environment.
 
-On Windows:
-
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
-
-On macOS or Linux:
+**Windows**
 
 ```bash
-python3 -m venv venv
-source venv/bin/activate
+python -m venv venv && venv\Scripts\activate
 ```
 
-### 3. Install Python dependencies
+**macOS / Linux**
+
+```bash
+python3 -m venv venv && source venv/bin/activate
+```
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-For development and Python testing, also install:
+Optional — tests, docs, and the Gradio dev UI:
 
 ```bash
 pip install -r requirements-dev.txt
 ```
 
-### 4. Configure optional LLM guidance
-
-The application can run without an API key. If no API key is configured, it uses deterministic fallback guidance.
-
-To enable LLM-powered expert guidance, create a file named `.env` in the repository root:
+Optional — LLM-written advice. Without a key the app falls back to fixed
+rule-based advice. Create `.env` in the project root:
 
 ```text
-OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_API_KEY=your_key_here
 ```
 
-Do not commit `.env` to GitHub.
+Never commit `.env`; it is already in `.gitignore`.
 
-## Running the Application
+---
 
-The application uses two local processes:
+## Run
 
-1. a FastAPI backend on port `7875`,
-2. a static web server for the browser UI on port `8000`.
+Two terminals, both with the venv activated.
 
-### 1. Start the backend API
-
-Open a terminal at the repository root and run:
+**Terminal 1 — backend API** (port 7875)
 
 ```bash
 python src/api/roadmap_api.py
 ```
 
-The backend will start at:
-
-```text
-http://127.0.0.1:7875
-```
-
-Check the backend by opening this URL in a browser:
-
-```text
-http://127.0.0.1:7875/api/health
-```
-
-Expected response:
-
-```json
-{"status":"ok"}
-```
-
-### 2. Start the roadmap builder UI
-
-Open a second terminal at the repository root and run:
+**Terminal 2 — web UI** (port 8000)
 
 ```bash
-cd roadmap_builder
-python -m http.server 8000
+cd roadmap_builder && python -m http.server 8000
 ```
 
-Open the application in a web browser:
+Open <http://127.0.0.1:8000>.
 
-```text
-http://127.0.0.1:8000
-```
+Health check: <http://127.0.0.1:7875/api/health> returns `{"status":"ok"}`.
 
-## How to Use the Application
+> ⏱️ The **first** assessment takes several minutes while models download.
+> Later runs take 45–60 seconds.
 
-1. Open `http://127.0.0.1:8000` in a browser.
-2. Select or load a roadmap template.
-3. Review or edit roadmap items in the roadmap builder.
-4. Open the news impact assessment panel.
-5. Enter either a news article URL or pasted news text.
-6. Choose the number of key points to extract.
-7. Run the impact assessment.
-8. Review the output:
-   - extracted evidence,
-   - PESTLE categories,
-   - sentiment direction,
-   - impact score,
-   - matched roadmap items,
-   - recommended status: `Maintain`, `Adjust`, or `Revise`,
-   - review guidance for affected roadmap items.
-9. Use the recommendation as decision support for roadmap review preparation.
+### Using it
 
-The final roadmap decision should remain with the roadmap owner or domain expert.
+1. **New roadmap** → pick the **Industrial Digital** template.
+2. Open the **Assess news** panel.
+3. Paste article text, or switch to **News URL**.
+4. Leave **Evidence points** at **7** — the scoring thresholds are calibrated
+   at that value, and changing it shifts verdicts.
+5. Click **Run**. Read the verdict, evidence, matched items, and advice.
 
-## Running Tests
+Test articles with known answers live in `testdata/`; the filename states the
+expected verdict, e.g. `adjust_01_chip_export_controls.txt`.
 
-### Python tests
+---
 
-From the repository root:
+## Tests
 
 ```bash
 pytest
 ```
 
-### Frontend tests
-
-Node.js is required for these tests.
-
 ```bash
-cd roadmap_builder
-npm install
-npm test
+cd roadmap_builder && npm test
 ```
 
-The test suites cover impact scoring logic, roadmap matching, guidance logic, frontend state reducers, and import/export helpers.
-
-### End-to-end acceptance check
-
-With the backend running, this replays every scenario in `testdata/` through the
-real pipeline and checks the verdict matches the expected one:
+End-to-end — replays all 10 `testdata/` scenarios through the live API and
+checks every verdict. Needs the backend running:
 
 ```bash
 python tools/e2e_check.py
 ```
 
-It downloads the NLP models on first run and takes roughly 45 seconds per
-scenario, so it is kept separate from `pytest`.
+| Suite | Count | Runtime |
+| --- | --- | --- |
+| Backend (pytest) | 54 | < 1 s |
+| Frontend (Vitest) | 50 | < 1 s |
+| End-to-end scenarios | 10 | ~8 min |
 
-## Important Files and Folders
+---
 
-| Path | Description |
-| --- | --- |
-| `README.md` | Installation, setup, usage, and repository structure |
-| `final_reports/` | Final signed report PDF and Thai/English abstract files |
-| `demo/` | Public demonstration video link |
-| `src/api/roadmap_api.py` | FastAPI backend entry point |
-| `src/core/` | Core impact assessment pipeline |
-| `src/ui/app.py` | Pipeline orchestration (`run_pipeline`) |
-| `src/ui/gradio_app.py` | Optional Gradio development UI (dev deps only) |
-| `roadmap_builder/` | Browser-based roadmap builder interface |
-| `testdata/` | Sample roadmap and news scenarios |
-| `tests/` | Python unit tests |
-| `docs/` | Developer documentation |
+## Documentation
 
-## Final Submission Files
-
-The final report files must be placed in `final_reports/` with these exact names:
-
-```text
-final_reports/68-1_CS403_68-1_22_nrc-r1.pdf
-final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_th.txt
-final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_en.txt
-```
-
-The demonstration video link must be stored in:
-
-```text
-demo/68-1_CS403_68-1_22_nrc-r1_demo_link.txt
-```
-
-The demonstration video file or hosted video should be named:
-
-```text
-68-1_CS403_68-1_22_nrc-r1_demo.mp4
-```
-
-The video must be publicly accessible or set to allow anyone with the link to view it.
-
-## Additional Documentation
-
-### Developer Handbook (start here if you are new)
-
-A full guide for someone taking over this project is in `docs/`, published as a
-browsable site with MkDocs. To read it:
+The **Developer Handbook** in `docs/` is the full guide. Read it as a website:
 
 ```bash
 pip install -r requirements-dev.txt
@@ -342,21 +162,111 @@ pip install -r requirements-dev.txt
 mkdocs serve -a 127.0.0.1:8001
 ```
 
-Then open `http://127.0.0.1:8001`. The handbook covers installation, a first
-run, how the pipeline works, the scoring maths, a tour of the codebase, common
-tasks, troubleshooting, and the research background.
+Open <http://127.0.0.1:8001>.
 
-The pages are plain Markdown, so they can also be read directly on GitHub
-without installing anything. Begin at `docs/index.md`.
+> ⚠️ Use port **8001** — port 8000 is taken by the roadmap builder.
 
-### Reference deep dives
+Build a static copy into `site/`:
 
-- `docs/ARCHITECTURE.md` explains the system architecture.
-- `docs/PIPELINE.md` explains the impact assessment workflow.
-- `docs/FRONTEND.md` explains the browser UI.
-- `docs/TESTING.md` explains the test strategy.
-- `docs/CONTRIBUTING.md` explains the development workflow.
+```bash
+mkdocs build
+```
+
+Everything is plain Markdown, so it also reads fine on GitHub without
+installing anything. Start at [`docs/index.md`](docs/index.md).
+
+| Page | Covers |
+| --- | --- |
+| [Start here](docs/index.md) | What this is, where to go next |
+| [Set up a new computer](docs/getting-started/prerequisites.md) | Bare machine → Python, Git, editor |
+| [Install](docs/getting-started/installation.md) | Full installation walkthrough |
+| [Run the app](docs/getting-started/first-run.md) | Both servers, explained |
+| [First assessment](docs/getting-started/first-assessment.md) | Reading the results |
+| [The problem it solves](docs/guide/the-problem.md) | Why roadmaps go stale |
+| [How it works](docs/guide/how-it-works.md) | The seven pipeline stages |
+| [The scoring maths](docs/guide/scoring.md) | Severity, with a worked example |
+| [Codebase tour](docs/guide/codebase-tour.md) | What each file does |
+| [Common tasks](docs/guide/common-tasks.md) | Recipes for likely changes |
+| [Troubleshooting](docs/guide/troubleshooting.md) | Real failures, real causes |
+| [Research background](docs/research/background.md) | DDRM, PESTLE, evaluation |
+
+Deep dives: [Architecture](docs/ARCHITECTURE.md) · [Pipeline](docs/PIPELINE.md)
+· [Frontend](docs/FRONTEND.md) · [Testing](docs/TESTING.md) ·
+[Contributing](docs/CONTRIBUTING.md)
+
+---
+
+## Project layout
+
+```text
+src/config.py      every tunable number — thresholds, weights, model names
+src/core/          the 7 pipeline stages, one file each
+src/api/           FastAPI backend (2 endpoints)
+src/ui/app.py      run_pipeline() — orchestrates the stages
+roadmap_builder/   browser UI (React, no build step)
+tests/             pytest suites
+tools/             diagnostics + end-to-end check
+testdata/          10 labelled news scenarios + roadmap fixture
+docs/              developer handbook
+final_reports/     submitted report and abstracts
+```
+
+`document/`, `references/`, and `archive/` hold report material, research
+papers, and old snapshots. They are excluded from git by design.
+
+---
+
+## Command reference
+
+| Command | Does |
+| --- | --- |
+| `python src/api/roadmap_api.py` | Start the backend |
+| `cd roadmap_builder && python -m http.server 8000` | Start the UI |
+| `mkdocs serve -a 127.0.0.1:8001` | Read the handbook |
+| `mkdocs build` | Build the docs site into `site/` |
+| `pytest` | Backend tests |
+| `cd roadmap_builder && npm test` | Frontend tests |
+| `python tools/e2e_check.py` | Verify all 10 scenarios |
+| `python tools/diagnose_impact.py <file.txt>` | Dump the full scoring chain |
+
+---
+
+## Key settings
+
+All in `src/config.py`. Re-run `python tools/e2e_check.py` after changing any of
+them — they were calibrated together.
+
+| Setting | Value | Meaning |
+| --- | --- | --- |
+| `KEYPOINTS_MAX` | 7 | Sentences extracted per article |
+| `DDRM_THRESHOLDS` | 0.35 / 0.65 | Adjust / Revise cutoffs |
+| `TOLERANCE_BANDS` | 0.35 / 0.60 | Minor / moderate / major buckets |
+| `PESTLE_MIN_CONFIDENCE` | 0.65 | Below this, evidence is discarded |
+
+---
+
+## Final submission files
+
+Report files in `final_reports/`, with these exact names:
+
+```text
+final_reports/68-1_CS403_68-1_22_nrc-r1.pdf
+final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_th.txt
+final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_en.txt
+```
+
+Demo video link in:
+
+```text
+demo/68-1_CS403_68-1_22_nrc-r1_demo_link.txt
+```
+
+Video named `68-1_CS403_68-1_22_nrc-r1_demo.mp4`, publicly accessible or
+viewable by anyone with the link.
+
+---
 
 ## License
 
-This project is a CS403 research prototype submitted to the Department of Computer Science, Thammasat University.
+CS403 research prototype, Department of Computer Science, Thammasat University.
+See [LICENSE](LICENSE).
