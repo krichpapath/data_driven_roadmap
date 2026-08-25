@@ -37,7 +37,7 @@ testing roadmap matching and guidance. Paste it into the app's optional
 
 1. Open the keypoints lab: `python src/ui/keypoints_lab.py`. Paste a file's
    contents into "Text" mode to inspect picks, relevance, and context.
-2. Open the main app: `python src/ui/app.py`. Paste the same text and
+2. Open the main app: `python src/ui/gradio_app.py`. Paste the same text and
    compare per-driver SKD, STRM severity, and verdict.
 3. If a verdict drifts (Maintain when Adjust expected, etc.), tune
    `TOLERANCE_BANDS` or `DDRM_THRESHOLDS` in `src/config.py`.

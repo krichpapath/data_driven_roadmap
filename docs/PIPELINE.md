@@ -112,7 +112,7 @@ Output mapping is canonical: `positive` → +1, `neutral` → 0, `negative` → 
 ## Stage 5 — Impact scoring (`src/core/impact.py`)
 
 The 5-step formula chain that owns every test in
-[`tests/test_impact.py`](../tests/test_impact.py).
+`tests/test_impact.py`.
 
 ### Step 1 — Magnitude
 

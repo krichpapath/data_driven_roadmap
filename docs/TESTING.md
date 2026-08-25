@@ -15,8 +15,27 @@ or documenting test coverage in a final report.
 | Frontend functional (reducers) | Vitest | `roadmap_builder/__tests__/reducers.test.js` | 26 | < 0.5 s |
 | **Total** | — | — | **104** | **≈ 1 s** |
 
+The unit suites above load no models, so they run in about a second. Model
+behaviour is covered separately by the end-to-end acceptance check below.
+
 Coverage target: every pure function in `src/core/`, every reducer-style
 helper in `roadmap_builder/app.jsx`, plus the import-JSON validator.
+
+## End-to-end acceptance check
+
+`tools/e2e_check.py` runs every scenario in `testdata/` through the live API and
+asserts the returned verdict matches the filename prefix (`maintain_`, `adjust_`,
+`revise_`). This is the only check that exercises the real models, so it is slow
+(≈45 s per scenario, plus a one-off multi-GB model download on first run) and is
+deliberately kept out of `pytest`.
+
+Start the backend first, then:
+
+```bash
+python tools/e2e_check.py
+```
+
+Exit code is 0 when every scenario matches its expected verdict, 1 otherwise.
 
 ---
 
