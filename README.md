@@ -39,7 +39,22 @@ The system includes:
 |   |-- 68-1_CS403_68-1_22_nrc-r1.pdf
 |   |-- 68-1_CS403_68-1_22_nrc-r1_abstract_en.txt
 |   `-- 68-1_CS403_68-1_22_nrc-r1_abstract_th.txt
+|-- mkdocs.yml
 |-- docs/
+|   |-- index.md                  <- developer handbook starts here
+|   |-- getting-started/
+|   |   |-- installation.md
+|   |   |-- first-run.md
+|   |   `-- first-assessment.md
+|   |-- guide/
+|   |   |-- the-problem.md
+|   |   |-- how-it-works.md
+|   |   |-- scoring.md
+|   |   |-- codebase-tour.md
+|   |   |-- common-tasks.md
+|   |   `-- troubleshooting.md
+|   |-- research/
+|   |   `-- background.md
 |   |-- ARCHITECTURE.md
 |   |-- CONTRIBUTING.md
 |   |-- FRONTEND.md
@@ -82,6 +97,7 @@ The system includes:
 |   `-- ui/
 |       |-- __init__.py
 |       |-- app.py
+|       |-- gradio_app.py
 |       `-- keypoints_lab.py
 |-- testdata/
 |   |-- README.md
@@ -94,7 +110,8 @@ The system includes:
 |   |-- test_keypoints.py
 |   `-- test_roadmap_matcher.py
 |-- tools/
-|   `-- diagnose_impact.py
+|   |-- diagnose_impact.py
+|   `-- e2e_check.py
 |-- requirements.txt
 |-- requirements-dev.txt
 |-- CHANGELOG.md
@@ -258,6 +275,18 @@ npm test
 
 The test suites cover impact scoring logic, roadmap matching, guidance logic, frontend state reducers, and import/export helpers.
 
+### End-to-end acceptance check
+
+With the backend running, this replays every scenario in `testdata/` through the
+real pipeline and checks the verdict matches the expected one:
+
+```bash
+python tools/e2e_check.py
+```
+
+It downloads the NLP models on first run and takes roughly 45 seconds per
+scenario, so it is kept separate from `pytest`.
+
 ## Important Files and Folders
 
 | Path | Description |
@@ -267,7 +296,8 @@ The test suites cover impact scoring logic, roadmap matching, guidance logic, fr
 | `demo/` | Public demonstration video link |
 | `src/api/roadmap_api.py` | FastAPI backend entry point |
 | `src/core/` | Core impact assessment pipeline |
-| `src/ui/app.py` | Pipeline orchestration and Gradio development UI |
+| `src/ui/app.py` | Pipeline orchestration (`run_pipeline`) |
+| `src/ui/gradio_app.py` | Optional Gradio development UI (dev deps only) |
 | `roadmap_builder/` | Browser-based roadmap builder interface |
 | `testdata/` | Sample roadmap and news scenarios |
 | `tests/` | Python unit tests |
@@ -299,7 +329,27 @@ The video must be publicly accessible or set to allow anyone with the link to vi
 
 ## Additional Documentation
 
-More technical details are available in `docs/`:
+### Developer Handbook (start here if you are new)
+
+A full guide for someone taking over this project is in `docs/`, published as a
+browsable site with MkDocs. To read it:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+```bash
+mkdocs serve -a 127.0.0.1:8001
+```
+
+Then open `http://127.0.0.1:8001`. The handbook covers installation, a first
+run, how the pipeline works, the scoring maths, a tour of the codebase, common
+tasks, troubleshooting, and the research background.
+
+The pages are plain Markdown, so they can also be read directly on GitHub
+without installing anything. Begin at `docs/index.md`.
+
+### Reference deep dives
 
 - `docs/ARCHITECTURE.md` explains the system architecture.
 - `docs/PIPELINE.md` explains the impact assessment workflow.

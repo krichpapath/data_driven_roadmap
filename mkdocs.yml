@@ -1,0 +1,77 @@
+site_name: DDRM Roadmap Review — Developer Handbook
+site_description: >-
+  A beginner-friendly guide to the Drivers and Trends Impact Assessment
+  Mechanism for Dynamic Technology Roadmap Status Monitoring (CS403 project
+  68-1_22_nrc-r1).
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  # Use system fonts instead of Google Fonts. Keeps the built site fully
+  # self-contained, so the handbook still works with no internet connection.
+  font: false
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - search.highlight
+    - search.suggest
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Start here: index.md
+  - Getting started:
+      - 1. Install everything: getting-started/installation.md
+      - 2. Run the app: getting-started/first-run.md
+      - 3. Your first assessment: getting-started/first-assessment.md
+  - Understanding the project:
+      - The problem it solves: guide/the-problem.md
+      - How it works: guide/how-it-works.md
+      - The scoring maths: guide/scoring.md
+      - Tour of the codebase: guide/codebase-tour.md
+  - Working on it:
+      - Common tasks: guide/common-tasks.md
+      - Troubleshooting: guide/troubleshooting.md
+  - Research background: research/background.md
+  - Reference (deep dives):
+      - Architecture: ARCHITECTURE.md
+      - Backend pipeline: PIPELINE.md
+      - Frontend: FRONTEND.md
+      - Testing: TESTING.md
+      - Contributing: CONTRIBUTING.md

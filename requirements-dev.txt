@@ -5,3 +5,16 @@
 # pytest into a deploy container.
 
 pytest>=8.0
+
+# Gradio development UIs only (src/ui/gradio_app.py, src/ui/keypoints_lab.py).
+# The delivered app is FastAPI + roadmap_builder/, which needs none of these.
+gradio>=4.0.0
+plotly>=5.18.0
+pandas>=2.0.0
+
+# Documentation site (the developer handbook in docs/).
+#   mkdocs serve   -> preview at http://127.0.0.1:8000
+#   mkdocs build   -> static site into site/
+# Pinned below 2.0: MkDocs 2.0 removes the plugin system this theme relies on.
+mkdocs>=1.6,<2.0
+mkdocs-material>=9.7,<10.0

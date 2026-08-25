@@ -9,13 +9,17 @@
 # --- Local-only folders -----------------------------------------------------
 # Internal university reports, drafts, .tex sources, templates.
 # Developer-facing handbook files are tracked explicitly via the !-rules below.
+# docs/ mixes the developer handbook with university report material (PDFs,
+# .tex sources, .docx templates, logos). Ignore everything, then whitelist the
+# handbook: markdown at the top level, plus the handbook subfolders.
 docs/*
-docs/**/*
-!docs/ARCHITECTURE.md
-!docs/PIPELINE.md
-!docs/FRONTEND.md
-!docs/CONTRIBUTING.md
-!docs/TESTING.md
+!docs/*.md
+!docs/getting-started/
+!docs/guide/
+!docs/research/
+# Inside those subfolders, track markdown only - never binaries.
+docs/*/*
+!docs/*/*.md
 document/
 
 # Third-party research papers (copyright concerns)
@@ -134,3 +138,8 @@ FUTUREPLAN.md
 # Lock file IS tracked so test versions stay pinned across machines.
 node_modules/
 **/node_modules/
+
+# --- MkDocs build output ---------------------------------------------------
+# The docs site is generated from docs/ by `mkdocs build`. Source is tracked,
+# output is not.
+site/
