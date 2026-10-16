@@ -15,6 +15,7 @@ from config import (
     PESTLE_LABELS,
     PESTLE_LABEL_VERBALIZED,
     PESTLE_HYPOTHESIS_TEMPLATE,
+    MODEL_REVISIONS,
 )
 
 try:
@@ -33,12 +34,14 @@ _VERBALIZED_TO_LABEL = dict(zip(PESTLE_LABEL_VERBALIZED, PESTLE_LABELS))
 def _get_classifier():
     global _classifier
     if _classifier is None:
-        from transformers import pipeline
-        _classifier = pipeline(
-            "zero-shot-classification",
-            model=PESTLE_MODEL,
-            device=-1,          # CPU; set to 0 for GPU
-        )
+        try:
+            from transformers import pipeline
+            _classifier = pipeline(
+                "zero-shot-classification", model=PESTLE_MODEL,
+                revision=MODEL_REVISIONS[PESTLE_MODEL], trust_remote_code=False, device=-1,
+            )
+        except Exception as exc:
+            raise RuntimeError(f"PESTLE model unavailable: {PESTLE_MODEL}. Download the pinned revision and restart the API.") from exc
     return _classifier
 
 

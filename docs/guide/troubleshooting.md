@@ -221,13 +221,15 @@ Open an item and check its PESTLE tags.
 
 Falls back to the fixed rule table when any of these is true:
 
+- **Use hosted AI guidance** is unchecked or `DDRM_EXTERNAL_AI=off`
 - No `OPENROUTER_API_KEY` in `.env`
 - The verdict is `Maintain` (expert mode only runs for Adjust and Revise)
 - There are no matched roadmap items
 - Every LLM call failed or timed out
 
-Check the backend terminal for errors. The app is designed to degrade quietly
-here rather than fail the whole request.
+Check the guidance warning in the interface and the backend logs. A failed
+guidance request falls back to deterministic advice; a failed assessment returns
+an error and does not display the previous result as a successful new analysis.
 
 ---
 

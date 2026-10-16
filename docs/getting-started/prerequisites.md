@@ -4,7 +4,7 @@ Start here if the machine has nothing installed yet. This page gets Python,
 Git, and a code editor working. The [next page](installation.md) installs the
 project itself.
 
-If you already have Python 3.10+ and Git, skip to
+If you already have Python 3.14.8 (verified on Windows x64) and Git, skip to
 [1. Install everything](installation.md).
 
 ---
@@ -13,10 +13,10 @@ If you already have Python 3.10+ and Git, skip to
 
 | Software | Why you need it | Required? |
 | --- | --- | --- |
-| **Python 3.10+** | Runs the backend and the whole analysis pipeline | **Yes** |
+| **Python 3.14.8 (verified on Windows x64)** | Runs the backend and the whole analysis pipeline | **Yes** |
 | **Git** | Downloads the project and tracks your changes | **Yes** |
 | **A code editor** | Reading and writing the code | Strongly recommended |
-| **Node.js 18+** | *Only* runs the frontend tests | Optional |
+| **Node.js 24 LTS** | *Only* runs the frontend tests | Optional |
 
 !!! tip "You can skip Node.js"
     The application does not need it. It is only for the 50 frontend unit
@@ -29,13 +29,14 @@ packages and about 2.5 GB for the AI models the project downloads on first run.
 
 ## Install Python
 
-The project is developed and tested on **Python 3.14**, and needs **3.10 or
-newer**. Do not install Python 2 — it is a different, long-dead language.
+The Phase 1 lock is verified on **Python 3.14.8, Windows x64**. Use that version
+to reproduce this environment; other Python versions need a separate dependency
+and model compatibility check.
 
 === "Windows"
 
     1. Go to <https://www.python.org/downloads/>
-    2. Click the big **Download Python** button.
+    2. Select the **Python 3.14.8 Windows x64** release used by the verified lock.
     3. Run the installer.
 
     !!! danger "Tick 'Add python.exe to PATH' on the first screen"
@@ -86,7 +87,7 @@ Open a **new** terminal (PowerShell on Windows, Terminal on macOS/Linux) and run
 python --version
 ```
 
-You want to see `Python 3.10.x` or higher.
+The Phase 1 lock was verified on `Python 3.14.8` on Windows x64.
 
 ??? failure "Windows says 'Python was not found... Microsoft Store'"
     This is Windows' fake `python` shortcut, and it means the real Python is not
@@ -201,7 +202,7 @@ Only needed to run the frontend tests.
 node --version
 ```
 
-You want v18 or higher. The project is tested on v24.
+Use Node 24 LTS; Phase 1 was tested on v24.18.0. Vitest 5 no longer supports Node 18.
 
 ---
 
@@ -248,7 +249,7 @@ python -m pip --version
 
 | Command | Expected |
 | --- | --- |
-| `python --version` | `Python 3.10` or higher |
+| `python --version` | `Python 3.14.8` (verified lock) |
 | `git --version` | any version |
 | `python -m pip --version` | any version |
 

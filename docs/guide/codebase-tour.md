@@ -1,186 +1,115 @@
 # Tour of the codebase
 
-Where everything lives, and — more usefully — **which files you can ignore**.
+Start with the entry points, then follow one assessment through the pipeline.
+This map describes the current layout; module boundaries have not been
+changed by the archive cleanup.
 
-The whole backend is about 4,000 lines of Python and the frontend about 3,900
-lines of JavaScript. That is small. You can read all of it in a weekend.
-
----
-
-## The folder map
+## Folder map
 
 ```text
 Roadmapping/
-│
-├── README.md              ← installation + usage (the official manual)
-├── CHANGELOG.md           ← history of changes, oldest at the bottom
-├── IMPACT_VALUES_GUIDE.md ← how to tune the scoring numbers
-├── mkdocs.yml             ← config for the site you are reading
-├── requirements.txt       ← what the app needs
-├── requirements-dev.txt   ← extra: tests, docs, optional dev UIs
-│
-├── src/                   ← ALL the Python
-│   ├── config.py          ← ★ every tunable number lives here
-│   ├── core/              ← ★ the seven pipeline stages
-│   ├── api/               ← the web server
-│   └── ui/                ← pipeline orchestration + optional dev UIs
-│
-├── roadmap_builder/       ← ALL the frontend (React, no build step)
-│
-├── tests/                 ← Python unit tests (pytest)
-├── tools/                 ← command-line diagnostic scripts
-├── testdata/              ← 10 labelled news scenarios + a roadmap fixture
-├── docs/                  ← this handbook
-│
-├── final_reports/         ← submitted report PDF + abstracts
-├── demo/                  ← demo video link
-├── document/              ← report chapters and screenshots
-├── references/            ← the research papers this builds on
-└── archive/               ← old versions and junk; ignore it entirely
+├── README.md              setup, commands, and verified development status
+├── CHANGELOG.md           dated changes and historical observations
+├── IMPACT_VALUES_GUIDE.md scoring controls and their meanings
+├── mkdocs.yml             handbook navigation and build configuration
+├── requirements.txt       application dependencies
+├── requirements-dev.txt   tests, docs, and optional developer interfaces
+├── src/
+│   ├── config.py          models, thresholds, weights, and extraction settings
+│   ├── core/              analysis stages and supporting helpers
+│   ├── api/               FastAPI server
+│   └── ui/                pipeline orchestration and optional Gradio tools
+├── roadmap_builder/       React interface and frontend tests
+├── tests/                 Python unit tests
+├── testdata/              labelled news scenarios and roadmap fixture
+├── tools/                 diagnostics and scenario runner
+├── docs/                  active developer handbook
+└── archive/               completed academic work and older snapshots
 ```
 
-!!! tip "Two folders matter more than all the others"
-    `src/core/` (the seven stages) and `src/config.py` (the numbers that control
-    them). If you understand those two, you understand the system.
+Generated `site/`, installed `venv/` and `node_modules/`, and caches are local
+outputs. Academic files previously mixed into `docs/` have been archived,
+so new handbook builds contain only the active documentation.
 
----
+## Backend responsibilities
 
-## The Python side
-
-### The files you will actually read
-
-| File | Lines | What it does |
-| --- | --- | --- |
-| **`src/config.py`** | 206 | Every threshold, weight, and model name. Start here. |
-| `src/ui/app.py` | 266 | `run_pipeline()` — runs the seven stages in order |
-| `src/api/roadmap_api.py` | 87 | The web server. Two endpoints, that is all. |
-
-### The seven stages, `src/core/`
-
-| File | Lines | Stage |
-| --- | --- | --- |
-| `extractor.py` | 178 | 1 — get article text from a URL |
-| `keypoints.py` | 259 | 2 — pick the important sentences |
-| `pestle.py` | 83 | 3 — sort into the six categories |
-| `sentiment.py` | 81 | 4 — positive / negative / neutral |
-| `router.py` | 16 | 4 — picks *which* sentiment model to use |
-| `impact.py` | 208 | 5 — the scoring maths |
-| `roadmap_matcher.py` | 129 | 6 — match evidence to roadmap items |
-| `guidance.py` | 710 | 7 — write the review advice |
-
-`guidance.py` is by far the biggest because it contains all the LLM prompt
-construction, the JSON schema enforcement, and the parallel execution. The
-deterministic fallback inside it is only a few dozen lines.
-
-### The optional extras
-
-These are **not needed to run the app**. They exist for development.
-
-| File | Lines | What it is |
-| --- | --- | --- |
-| `src/ui/gradio_app.py` | 640 | An older Gradio UI over the same pipeline |
-| `src/ui/keypoints_lab.py` | 198 | A sandbox for tuning sentence extraction |
-| `tools/diagnose_impact.py` | 270 | Prints the full scoring chain for an article |
-| `tools/e2e_check.py` | 35 | Replays all 10 scenarios, checks the verdicts |
-
-!!! note "Why gradio_app.py is separate"
-    It used to live inside `app.py`. That meant the API server loaded Gradio,
-    Plotly and Pandas on every start-up just to reach `run_pipeline()`. Splitting
-    them means the delivered app needs none of those three — they are in
-    `requirements-dev.txt` now. **Do not merge them back.**
-
----
-
-## The frontend side
-
-`roadmap_builder/` is React, but with **no build step**. The browser downloads
-the `.jsx` files and compiles them itself using Babel. That is why you can serve
-it with `python -m http.server` and why there is no `npm run build`.
-
-| File | Lines | What it is |
-| --- | --- | --- |
-| `index.html` | — | Loads everything, in order. Read this first. |
-| `app.jsx` | 976 | Top-level state and routing |
-| `impact-advisor.jsx` | 810 | The "Assess news" panel and results display |
-| `modals.jsx` | 545 | Item editor, import/export, structure editing |
-| `tweaks-panel.jsx` | 425 | Appearance settings |
-| `start-screen.jsx` | 247 | Roadmap list and template picker |
-| `roadmap-grid.jsx` | 225 | The grid itself |
-| `data.jsx` | 189 | PESTLE definitions and the built-in templates |
-| `coach-rail.jsx` | 129 | The guidance sidebar |
-| `primitives.jsx` | 70 | Small shared components |
-| `lib/exports.js` | 271 | Pure helper functions — **this is what the tests cover** |
-| `styles.css` | 2,291 | All styling, with CSS custom properties at the top |
-
-!!! warning "Script order in `index.html` matters"
-    There are no `import` statements — every file dumps its names into the
-    global scope, so they must load in dependency order. If you add a new
-    `.jsx`, you must add a `<script>` tag in the right position.
-
-### The cache-busting trick
-
-Script tags look like `src="app.jsx?v=9"`. That `?v=` number forces browsers to
-re-download after you change a file. **If you edit a `.jsx` and your change does
-not appear, bump that number** in `index.html`.
-
----
-
-## Where the data lives
-
-There is **no database**. Roadmaps are stored in the browser's `localStorage`.
-
-That means:
-
-- Roadmaps are per-browser and per-machine.
-- Clearing browser data deletes them.
-- The Export button is the only real backup.
-
-For a prototype this is the right call — it removes an entire tier of
-infrastructure. If this ever needed multi-user support, that is the first thing
-that would have to change.
-
----
-
-## The tests
-
-| Where | Runs with | Count |
-| --- | --- | --- |
-| `tests/` | `pytest` | 54 |
-| `roadmap_builder/__tests__/` | `npm test` | 50 |
-| `tools/e2e_check.py` | manual, backend running | 10 scenarios |
-
-The unit tests deliberately **load no AI models**, which is why they finish in
-under a second. Model behaviour is checked separately by the end-to-end script.
-
-`tests/test_impact.py` is worth reading even if you do not care about testing —
-it is a set of worked examples of the scoring maths.
-
-See [Testing](../TESTING.md) for the full strategy.
-
----
-
-## Things you can safely ignore
-
-| Folder | Why ignore it |
+| File | Responsibility |
 | --- | --- |
-| `archive/` | Old versions, an archived virtualenv, browser profile junk. Not in git. |
-| `venv/` | Your installed packages. Regenerable. Not in git. |
-| `__pycache__/` | Python bytecode. Regenerable. |
-| `document/`, `references/` | Report material and source papers, not code. |
+| `src/api/roadmap_api.py` | HTTP entry point: health check and assessment requests |
+| `src/ui/app.py` | `run_pipeline()` coordinates the analysis; despite its location, it has no UI framework dependency |
+| `src/config.py` | Model choices, weights, thresholds, and extraction settings |
+| `src/core/extractor.py` | Get article text from a URL or pasted text |
+| `src/core/keypoints.py` | Select relevant, diverse sentences and their context |
+| `src/core/pestle.py` | Classify political, economic, social, technological, legal, or environmental evidence |
+| `src/core/router.py` | Choose the sentiment model for a category |
+| `src/core/sentiment.py` | Normalize model predictions to positive, negative, or neutral |
+| `src/core/impact.py` | Calculate impact severity and the review verdict |
+| `src/core/roadmap_matcher.py` | Match active drivers to roadmap item tags |
+| `src/core/guidance.py` | Rule-based advice and optional OpenRouter guidance |
 
----
+The path is: request → article text → key sentences → category and sentiment
+→ impact score → roadmap matches → advice. See [Architecture](../ARCHITECTURE.md)
+and [Pipeline](../PIPELINE.md) for the contract and calculations.
 
-## Reading order for your first day
+`src/ui/gradio_app.py` and `src/ui/keypoints_lab.py` are optional development
+interfaces. Their Gradio, Plotly, and Pandas dependencies are separate from
+the delivered API/browser application.
 
-1. `src/config.py` — see every number the system uses
-2. `src/ui/app.py`, function `run_pipeline()` — see the seven stages called in order
-3. `src/core/impact.py` — the maths (and `tests/test_impact.py` alongside it)
-4. `src/api/roadmap_api.py` — how the web request arrives
-5. `roadmap_builder/index.html` then `impact-advisor.jsx` — how the UI calls it
+## Frontend responsibilities
 
-That is roughly 900 lines. Everything else is detail you can look up when you
-need it.
+| File in `roadmap_builder/` | Responsibility |
+| --- | --- |
+| `index.html` | Load React, Babel, CSS, and JSX files in dependency order |
+| `app.jsx` | Roadmap collection, routing, persistence, undo, and callbacks |
+| `impact-advisor.jsx` | News input, API requests, assessment results, and advice |
+| `roadmap-grid.jsx` | Roadmap grid and drag/drop |
+| `modals.jsx` | Item editing, imports, and structure editing |
+| `start-screen.jsx` | Roadmap list and template selection |
+| `data.jsx` | Templates, glossary, and PESTLE definitions |
+| `coach-rail.jsx` | Onboarding checklist |
+| `primitives.jsx` | Shared visual helpers |
+| `tweaks-panel.jsx` | Appearance controls |
+| `styles.css` | Styling and theme variables |
+| `lib/exports.js` | Mirror of application helpers used by Vitest |
 
----
+There is no bundler. The browser compiles JSX with Babel and the components
+share names through the global scope. Script order in `index.html` matters.
+If cached scripts hide a change, update the relevant asset version query.
+See [Frontend](../FRONTEND.md) for state and interaction details.
+
+Roadmaps persist in browser `localStorage`, so they are specific to the browser
+and origin. Export important roadmaps before clearing browser data.
+
+## Tests and development tools
+
+| Location | Command | Coverage |
+| --- | --- | --- |
+| `tests/` | `python -m pytest` from the root | 54 backend helper tests |
+| `roadmap_builder/__tests__/` | `npm test` from `roadmap_builder/` | 50 tests of mirrored frontend helpers |
+| `tools/e2e_check.py` | `python tools/e2e_check.py` with the API running | Ten scenarios through the real models |
+| `tools/diagnose_impact.py` | `python tools/diagnose_impact.py <article.txt>` | Scoring diagnostics; writes to `tools/diagnostic_output/` |
+
+Unit tests cover neither browser interaction nor real model inference. The
+frontend helper mirror must stay aligned with `app.jsx` until the duplication
+is removed. See [Testing](../TESTING.md) for the current verification limits.
+
+## Historical material
+
+`archive/README.md` indexes the retired material. `archive/university/` contains
+reports, research references, submission files, and the old generated handbook.
+Original contents are preserved, including historical conclusions and old paths.
+The archive index and previously tracked reports remain eligible for Git;
+other local archive files are ignored and require a separate backup.
+
+Existing older prototype archives remain in place. They are not part of the
+active application and should not be used as current implementation guidance.
+
+## Suggested reading order
+
+1. `src/ui/app.py` — follow one assessment through `run_pipeline()`.
+2. `src/config.py` — identify the models and calibration settings.
+3. `src/core/impact.py` alongside `tests/test_impact.py` — understand scoring.
+4. `src/api/roadmap_api.py` — inspect the request and response contract.
+5. `roadmap_builder/index.html`, `app.jsx`, and `impact-advisor.jsx` — follow the browser flow.
 
 Next: [Common tasks](common-tasks.md).

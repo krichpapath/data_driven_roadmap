@@ -11,21 +11,23 @@ A workflow handbook for the next developer (likely an intern). Read
 git clone <repo>
 cd roadmapping
 
-python -m venv venv
-venv\Scripts\activate                # Windows
-# source venv/bin/activate           # macOS / Linux
+python -m venv .venv-readiness
+.\.venv-readiness\Scripts\Activate.ps1          # Windows PowerShell
+# source .venv-readiness/bin/activate           # macOS / Linux
 
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
+pip install -r requirements.lock
+pip install -r requirements-dev.lock
 
-cd roadmap_builder && npm install && cd ..
+cd roadmap_builder
+npm ci
+cd ..
 ```
 
 Smoke-check the install:
 
 ```bash
-pytest                               # → 54 tests, < 1 second
-cd roadmap_builder && npm test       # → 24 tests, < 1 second
+pytest                               # → 96 tests
+cd roadmap_builder && npm test       # → 54 tests
 ```
 
 If both are green, you can run the app (see README quickstart).
@@ -49,23 +51,25 @@ cd roadmap_builder && python -m http.server 8000
 For LLM-powered expert advice, drop a `.env` at the repo root:
 
 ```
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=openai/gpt-4o-mini      # optional, this is the default
+OPENROUTER_API_KEY=your_key_here
+DDRM_EXTERNAL_AI=on
+OPENROUTER_MODEL=openai/gpt-6-luna
 ```
 
-Without a key the app silently falls back to deterministic guidance — every
-feature still works, advice is just more generic.
+Enable **Use hosted AI guidance** in advisor Settings for each session.
+Without opt-in, advice is deterministic. When opted-in guidance fails, the UI
+shows the error alongside deterministic fallback advice.
 
 ---
 
 ## Running tests
 
 ```bash
-pytest                                  # backend (from repo root) — 54 tests
+pytest                                  # backend (from repo root) — 96 tests
 pytest tests/test_impact.py -v          # one file, verbose
 pytest -k "discretize"                  # by keyword
 
-cd roadmap_builder && npm test          # frontend (one-shot) — 50 tests
+cd roadmap_builder && npm test          # frontend (one-shot) — 54 tests
 cd roadmap_builder && npm run test:watch   # frontend (re-runs on save)
 ```
 
@@ -94,8 +98,9 @@ Before opening a PR or pushing:
 6. If you changed the `Item` shape or `RoadmapState`, **add a localStorage
    migration** (see Deferred Work below — there is no migration framework
    yet, so for now write a one-off migration in `loadRoadmapCollection`).
-7. No new files in `docs/` unless you also add an `!docs/<file>.md` entry to
-   `.gitignore` — the rest of `docs/` is local-only on purpose.
+7. Keep `docs/` focused on the active handbook. Add new pages to `mkdocs.yml`
+   and run `mkdocs build --strict`. Academic material belongs in the archive;
+   see `archive/README.md` for its tracking rules.
 
 ---
 
@@ -173,8 +178,9 @@ that reads, transforms, and re-saves, gated on a stored schema version.
 
 ## Out of scope (deferred to later quarter)
 
-These are real problems but not blocking handoff. Each line is a future
-ticket. Picking any one off is a great onboarding task.
+The following ideas were recorded during the earlier handover. They are
+uncommitted proposals, not the agreed development roadmap. Reassess the
+problem and scope before adopting a migration or adding infrastructure.
 
 - **Vite + TypeScript migration** for the frontend. Removes Babel-in-browser,
   enables type checking, faster first paint. Each `*.jsx` is small enough to

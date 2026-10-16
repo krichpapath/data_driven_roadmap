@@ -1,7 +1,7 @@
 # 2. Run the app
 
 The application is **two programs running at the same time**. You need two
-terminal windows. Both must be inside the activated virtual environment.
+terminal windows. Both must use the updated `.venv-readiness` environment from the installation guide.
 
 ---
 
@@ -27,8 +27,8 @@ You should see:
 ```
 
 !!! success "That is the whole backend"
-    If you see `{"status":"ok"}`, the Python side is working. No database to
-    set up, no migrations, nothing else to configure.
+    This confirms the API starts. Model loading and assessment require separate
+    checks; see the readiness report. Phase 1 has no database or migrations.
 
 ---
 
@@ -41,7 +41,7 @@ cd roadmap_builder
 ```
 
 ```bash
-python -m http.server 8000
+python -m http.server 8000 --bind 127.0.0.1
 ```
 
 This just serves the files in that folder. There is no build step and no

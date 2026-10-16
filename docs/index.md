@@ -1,8 +1,9 @@
 # Start here
 
-Welcome. You have just inherited this project. This handbook is written for a
-student who has never seen the codebase before, so nothing is assumed except
-that you can open a terminal and you know a little Python.
+This handbook describes the current application and how to develop it.
+Start with the codebase tour for structure, or the setup pages to run it locally.
+Completed university work is preserved under `archive/university/`; see
+`archive/README.md` in the repository for its contents and tracking status.
 
 Read this page, then go to [Set up a new computer](getting-started/prerequisites.md)
 if the machine is bare, or straight to
@@ -60,8 +61,7 @@ fell into, and which of your roadmap items are affected.
     Maintain  /  Adjust  /  Revise
 ```
 
-Every one of those seven steps is a separate Python file in `src/core/`. That is
-the single most useful fact about this codebase — see
+The stages live in `src/core/` and are connected by `src/ui/app.py` — see
 [How it works](guide/how-it-works.md).
 
 ---
@@ -108,9 +108,10 @@ That is it. There is no database, no Docker, no build step, no bundler.
 
     Go straight to [Troubleshooting](guide/troubleshooting.md).
 
--   **Writing the report / need the theory?**
+-   **Need to understand the scoring?**
 
-    Read [Research background](research/background.md).
+    Read [The scoring maths](guide/scoring.md). Historical research and
+    evaluation notes are preserved under `archive/university/`.
 
 -   **Want the deep technical detail?**
 
@@ -122,18 +123,18 @@ That is it. There is no database, no Docker, no build step, no bundler.
 
 ---
 
-## Project facts you will be asked about
+## Current baseline and limits
 
 | | |
 | --- | --- |
-| **Project code** | `68-1_22_nrc-r1` |
-| **Title (EN)** | Drivers and Trends Impact Assessment Mechanism for Dynamic Technology Roadmap Status Monitoring |
-| **Course** | CS403, Department of Computer Science, Thammasat University |
-| **Advisor** | อ.ดร. นวฤกษ์ ชลารักษ์ |
-| **Language** | Python 3.10+ backend, React (no build step) frontend |
-| **Tests** | 54 backend + 50 frontend = 104 automated, plus a 10-scenario end-to-end check |
-| **Runs offline?** | The pipeline does. The web page currently needs internet — see [Troubleshooting](guide/troubleshooting.md#the-web-page-needs-an-internet-connection). |
+| **Language** | Python 3.14.8 verified backend, React (no build step) frontend |
+| **Unit tests** | 54 backend + 50 frontend passed on 2026-10-15; models and browser interactions are outside their coverage |
+| **Local startup** | API health and static UI serving verified on 2026-10-15 |
+| **Model evaluation** | Ten labelled scenarios are available; not rerun during the archive cleanup |
+| **Storage** | Browser `localStorage`; export roadmaps for backup |
+| **Offline use** | Text assessment requires cached models and rule-based advice. URL extraction and OpenRouter need network access. The browser loads CDN scripts — see [Troubleshooting](guide/troubleshooting.md#the-web-page-needs-an-internet-connection). |
 
 "DDRM" appears everywhere in the code. It stands for **Data-Driven
-Roadmapping**, the research approach this project builds on. See
-[Research background](research/background.md).
+Roadmapping**, the research approach this project builds on. Historical
+research claims and evaluation results remain in the archive; rerun the
+relevant checks before treating them as evidence for a new version.

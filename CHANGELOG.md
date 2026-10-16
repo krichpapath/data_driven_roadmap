@@ -4,10 +4,56 @@ All notable changes to the DDRM prototype are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely.
 Dates use ISO `YYYY-MM-DD`.
 
-#SHORT AND SIMPLE IS THE MAIN GOAL OF THE CHANGE LOG.
+Entries describe changes and observations at the time they were recorded.
+Historical model results and old scenario names are not current acceptance
+evidence. See README.md for the verified development baseline.
 ---
 
 ## [Unreleased]
+
+### 2026-10-16 — Selected advice model upgrade
+
+- Default hosted advice to GPT-6 Luna; offer GPT-6.1 Sol, Claude Sonnet 5.5,
+  Claude Haiku 5.5 and Qwen3.7 Plus. Migrate old saved GPT-4o defaults to Luna.
+- Use model-compatible reasoning options and strict-parameter provider routing;
+  report empty or token-truncated advice as failures. Hosted AI remains opt-in.
+- Preserve English scoring models and historical readiness evidence. See
+  [upgrade verification](docs/readiness/advice-model-upgrade.md).
+
+### 2026-10-16 — Phase 1 readiness
+
+- Isolated and locked dependency updates; recorded installed versions, model
+  revisions, full English scenario baselines and security/update inventories.
+- Wired server-validated model selection and explicit hosted-AI-off controls;
+  report the actual provider model and visible fallback errors.
+- Aligned severity labels with 0.35/0.65; bounded URL fetching, blocked private
+  destinations and unsafe redirects, and reused downloaded HTML across parsers.
+- Serialized assessment calls after a cold-start concurrency check exposed a
+  model-loading dtype race. Preserved model weights and scoring rules.
+- Protected roadmap autosave during route changes, surfaced failed storage, and
+  made full JSON export downloadable using the existing export dialog.
+- Added 28 Python and four JavaScript regression cases. See
+  [readiness report](docs/readiness/report.md) for actual checks and limitations.
+- Preserved all 31 original requirements and 15 acceptance scenarios in the
+  release checklist; Django and multi-source implementation remain later phases.
+
+
+### 2026-10-15 — Archive completed academic work and refresh development docs
+
+- Moved university reports, research references, submission files, and old
+  handbook output under `archive/university/`, preserving their contents.
+- Saved the original README and a local SHA-256 move manifest. Added
+  `archive/README.md` with the locations and Git/local-only boundaries.
+- Refreshed README, handbook navigation, folder map, and contributor guidance
+  for ongoing development. Historical evaluations are clearly separated from
+  current verification.
+- Corrected stale model names and configuration comments; application behavior,
+  dependencies, and scoring values are unchanged.
+- Verified all 156 preserved files by SHA-256, Git ignore boundaries, 54
+  backend tests, 50 frontend tests, and a strict handbook build with local
+  links checked. Real-model scenarios were not rerun.
+
+Earlier dated entries below are retained as historical records.
 
 ### 2026-04-29 — Impact tuning was too sensitive
 

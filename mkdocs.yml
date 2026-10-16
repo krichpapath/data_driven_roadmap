@@ -1,8 +1,7 @@
 site_name: DDRM Roadmap Review — Developer Handbook
 site_description: >-
-  A beginner-friendly guide to the Drivers and Trends Impact Assessment
-  Mechanism for Dynamic Technology Roadmap Status Monitoring (CS403 project
-  68-1_22_nrc-r1).
+  Development guide for the Roadmap Review application: setup, architecture,
+  scoring, testing, and maintenance.
 docs_dir: docs
 site_dir: site
 
@@ -67,9 +66,10 @@ nav:
       - The scoring maths: guide/scoring.md
       - Tour of the codebase: guide/codebase-tour.md
   - Working on it:
+      - Phase 1 readiness: readiness/report.md
+      - Requirements checklist: readiness/requirements-checklist.md
       - Common tasks: guide/common-tasks.md
       - Troubleshooting: guide/troubleshooting.md
-  - Research background: research/background.md
   - Reference (deep dives):
       - Architecture: ARCHITECTURE.md
       - Backend pipeline: PIPELINE.md

@@ -31,9 +31,9 @@ function makeRecord(state, id = createRoadmapId(), updatedAt = new Date().toISOS
 }
 
 function saveRoadmapCollection(roadmaps) {
-  try {
-    localStorage.setItem(ROADMAPS_KEY, JSON.stringify({ roadmaps }));
-  } catch {}
+  let storage;
+  try { storage = localStorage; } catch {}
+  return RoadmapStorage.save(storage, ROADMAPS_KEY, roadmaps);
 }
 
 function loadRoadmapCollection() {
@@ -348,6 +348,8 @@ function App() {
   }/*EDITMODE-END*/);
 
   const [state, setState] = React.useState(null);
+  const [stateRoadmapId, setStateRoadmapId] = React.useState(null);
+  const [saveError, setSaveError] = React.useState("");
   const [showTplPicker, setShowTplPicker] = React.useState(false);
   const [showImport, setShowImport] = React.useState(false);
   const [showGloss, setShowGloss] = React.useState(false);
@@ -365,12 +367,23 @@ function App() {
   // All collection mutations route through here so persistence is never forgotten.
   // Declared before effects that depend on it to avoid TDZ on the dep-array read.
   const updateRoadmaps = React.useCallback((mutate) => {
-    setRoadmaps(prev => {
-      const next = mutate(prev);
-      saveRoadmapCollection(next);
-      return next;
-    });
+    setRoadmaps(mutate);
   }, []);
+
+  React.useEffect(() => {
+    if (loadError) {
+      setSaveError("Saved roadmaps could not be read. Automatic saving is disabled to preserve the existing data. Export new work before leaving.");
+      return;
+    }
+    setSaveError(saveRoadmapCollection(roadmaps));
+  }, [roadmaps, loadError]);
+
+  React.useEffect(() => {
+    if (!saveError) return;
+    const warn = e => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [saveError]);
 
   React.useEffect(() => {
     if (route.view === "empty") {
@@ -385,12 +398,14 @@ function App() {
   React.useEffect(() => {
     if (route.view !== "builder" || !activeRecord) {
       setState(null);
+      setStateRoadmapId(null);
       setSelected(new Set());
       undoStackRef.current = [];
       setCanUndo(false);
       return;
     }
     setState(activeRecord.state);
+    setStateRoadmapId(route.id);
     setSelected(new Set());
     undoStackRef.current = [];
     setCanUndo(false);
@@ -423,12 +438,12 @@ function App() {
 
   // Persist current builder state into the collection on every change.
   React.useEffect(() => {
-    if (route.view !== "builder" || !route.id || !state || !isValidRoadmapState(state)) return;
+    if (!RoadmapStorage.canPersist(route, stateRoadmapId, state)) return;
     updateRoadmaps(prev => prev.map(record => record.id === route.id
       ? { ...record, title: titleOf(state), updatedAt: new Date().toISOString(), state: { ...state, title: titleOf(state) } }
       : record
     ));
-  }, [state, route.view, route.id, updateRoadmaps]);
+  }, [state, stateRoadmapId, route.view, route.id, updateRoadmaps]);
 
   // figure out current step based on data
   React.useEffect(() => {
@@ -584,7 +599,7 @@ function App() {
     const safeTitle = state.title.replace(/[^\w\-]+/g, "_");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${safeTitle}_selection.${format.ext}`;
+    a.download = `${safeTitle}${showExport.wholeRoadmap ? "" : "_selection"}.${format.ext}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -625,11 +640,7 @@ function App() {
   };
 
   const doExport = () => {
-    const data = JSON.stringify(state, null, 2);
-    navigator.clipboard.writeText(data).then(
-      () => showToast("JSON copied to clipboard"),
-      () => showToast("Press Ctrl+C - couldn't auto-copy")
-    );
+    setShowExport({ open: true, kind: "json", payload: JSON.stringify(state, null, 2), wholeRoadmap: true });
   };
 
   const applyGuidanceNotes = (items, result) => {
@@ -662,6 +673,7 @@ function App() {
   if (route.view === "roadmaps") {
     return (
       <>
+        {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
         <RoadmapList
           roadmaps={roadmaps}
           loadError={loadError}
@@ -677,6 +689,7 @@ function App() {
 
   if (route.view === "new") {
     return <>
+      {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
       <StartScreen onStart={handleStart} onImport={() => setShowImport(true)} onRoadmaps={() => go("/roadmaps")} />
       <TemplatePicker open={showTplPicker} onClose={() => setShowTplPicker(false)} onPick={handlePickTemplate} />
       <ImportModal open={showImport} onClose={() => setShowImport(false)} onLoad={handleImport} />
@@ -720,6 +733,7 @@ function App() {
   return (
     <>
       <div className="app" style={{ gridTemplateColumns: tpl }}>
+        {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
         <header className="topbar">
           <button className="brand brand-button" onClick={() => go("/roadmaps")} title="Back to roadmap list">
             <div className="brand-mark">D</div>
@@ -907,7 +921,7 @@ function App() {
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <div>
-                <div className="modal-title">Export {selected.size} selected item{selected.size > 1 ? "s" : ""}</div>
+                <div className="modal-title">{showExport.wholeRoadmap ? "Export roadmap" : `Export ${selected.size} selected item${selected.size > 1 ? "s" : ""}`}</div>
                 <div className="modal-sub">
                   Format: <b style={{ textTransform: "uppercase" }}>{showExport.kind}</b>. Preview below - copy to clipboard or download as a file.
                 </div>

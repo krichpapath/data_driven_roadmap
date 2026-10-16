@@ -14,9 +14,9 @@ checkout. Budget about 30 minutes, most of which is downloading.
 | Software | Why | Version |
 | --- | --- | --- |
 | **Git** | To clone the repository | Any recent version |
-| **Python** | Runs the backend and the whole pipeline | **3.10 or newer** |
+| **Python** | Runs the backend and the whole pipeline | **3.14.8 on Windows x64 (verified lock)** |
 | **A web browser** | To use the app | Chrome, Edge, Firefox, or Safari |
-| **Node.js** | *Only* to run the frontend tests | 18 or newer |
+| **Node.js** | *Only* to run the frontend tests | 24 LTS (24.18.0 verified) |
 
 !!! tip "Node.js is optional"
     You do **not** need Node to use the application. It is only for running the
@@ -36,9 +36,7 @@ wherever this guide says `python`.
 
 ## Step 1 — Clone the repository
 
-There are two repositories. Use the one you have access to.
-
-**Development repository** — where the working history lives:
+Use the development repository:
 
 ```bash
 git clone https://github.com/krichpapath/data_driven_roadmap.git
@@ -48,17 +46,12 @@ git clone https://github.com/krichpapath/data_driven_roadmap.git
 cd data_driven_roadmap
 ```
 
-**Course submission repository** — the graded snapshot:
-
-```bash
-git clone https://github.com/ComSciThammasatU/2568-2-cs403-final-submission-68-1_22_nrc-r1.git
-```
-
 !!! warning "Some folders are deliberately not in git"
-    `document/`, `references/`, and `archive/` are excluded by `.gitignore` —
-    they hold university reports, third-party research papers, and old
-    snapshots. Cloning gives you the **code and this handbook**, not those. If
-    you need the report material, copy it across separately.
+    Completed university material lives under `archive/university/`.
+    Previously tracked reports and the archive index remain eligible for Git;
+    local drafts, third-party papers, and old snapshots stay ignored. See
+    `archive/README.md` in the repository for the exact inventory. A clone
+    does not include local-only archive files.
 
     `.env` is also excluded, by design. See Step 5.
 
@@ -69,27 +62,27 @@ git clone https://github.com/ComSciThammasatU/2568-2-cs403-final-submission-68-1
 A virtual environment keeps this project's packages separate from the rest of
 your computer. Always work inside it.
 
-=== "Windows"
+=== "Windows PowerShell"
 
     ```bash
-    python -m venv venv
+    python -m venv .venv-readiness
     ```
 
     ```bash
-    venv\Scripts\activate
+    .\.venv-readiness\Scripts\Activate.ps1
     ```
 
 === "macOS / Linux"
 
     ```bash
-    python3 -m venv venv
+    python3 -m venv .venv-readiness
     ```
 
     ```bash
-    source venv/bin/activate
+    source .venv-readiness/bin/activate
     ```
 
-You will know it worked because your prompt now starts with `(venv)`.
+You will know it worked because your prompt now starts with `(.venv-readiness)`.
 
 !!! warning "You must activate it in every new terminal"
     Opening a new terminal drops you out of the virtual environment. If a
@@ -100,15 +93,16 @@ You will know it worked because your prompt now starts with `(venv)`.
 ## Step 3 — Install the Python packages
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.lock
 ```
 
 This is the big download — roughly 2 GB, mostly PyTorch. Be patient.
 
-If you also want to run the tests or the optional Gradio developer UI:
+The runtime lock includes pytest and the API test client. For the optional
+Gradio developer UIs and documentation tools:
 
 ```bash
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.lock
 ```
 
 ??? question "Why are there two requirements files?"
@@ -134,9 +128,9 @@ themselves into a cache folder (`~/.cache/huggingface/`), about 2.5 GB total.
 | `distilroberta-base-climate-sentiment` | Good/bad, climate news |
 
 !!! warning "The first assessment is slow"
-    Expect several minutes on the very first run while models download. Every
-    run after that is roughly 45–60 seconds. Nothing is broken; it is
-    downloading.
+    The first run can take several minutes while models download and load.
+    Later latency depends on hardware and input. Check server output if a
+    request fails; unit tests do not confirm that the models are available.
 
 ---
 
@@ -144,13 +138,16 @@ themselves into a cache folder (`~/.cache/huggingface/`), about 2.5 GB total.
 
 The app runs perfectly well **without** this. Skip it if you like.
 
-Without a key, the app writes review advice from a fixed set of rules. With a
-key, it asks a language model to write tailored advice per PESTLE role.
+By default, the app writes review advice from fixed rules. Hosted advice requires
+a key, a server setting that permits it, and the **Use hosted AI guidance** checkbox
+in the advisor's Settings. The checkbox resets off when the advisor is reopened
+or its API endpoint changes.
 
 To enable it, create a file named `.env` in the project root:
 
 ```text
 OPENROUTER_API_KEY=your_key_here
+DDRM_EXTERNAL_AI=on
 ```
 
 !!! danger "Never commit `.env`"
@@ -166,7 +163,8 @@ OPENROUTER_API_KEY=your_key_here
 pytest
 ```
 
-You should see **54 passed**. If you do, your Python environment is correct.
+You should see **82 passed**. This verifies the tested Python helpers; it does
+not verify model downloads, model inference, or external services.
 
 Now go to [2. Run the app](first-run.md).
 
@@ -181,3 +179,14 @@ Now go to [2. Run the app](first-run.md).
 | `ModuleNotFoundError` when running | You forgot to activate the venv — see Step 2. |
 | `pytest` says "no tests ran" | You are not in the project root. `cd` there first. |
 | Something else | See [Troubleshooting](../guide/troubleshooting.md). |
+
+## Phase 1 reproducibility
+
+Use the lock files above to reproduce the validated installation. Direct
+requirements files record the selected package versions; the locks also pin
+transitive dependencies. Keep an existing environment intact when testing
+updates: create a separate virtual environment. See the
+[readiness report](../readiness/report.md) for verification and exceptions.
+
+Hosted guidance requires both `DDRM_EXTERNAL_AI=on` and the advisor
+**Use hosted AI guidance** checkbox. An API key alone does not enable it.

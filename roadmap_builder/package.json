@@ -4,11 +4,12 @@
   "private": true,
   "description": "Browser UI for the DDRM Roadmap Builder. No bundler at runtime; this package.json exists only to host Vitest unit tests against pure helpers in lib/exports.js.",
   "type": "module",
+  "engines": { "node": "^22.12.0 || ^24.0.0 || >=26.0.0" },
   "scripts": {
     "test": "vitest run --dir __tests__",
     "test:watch": "vitest --dir __tests__"
   },
   "devDependencies": {
-    "vitest": "^2.1.0"
+    "vitest": "5.0.4"
   }
 }

@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # add src/ to p
 # the FastAPI backend can import run_pipeline without pulling in gradio/plotly/
 # pandas. The Gradio development UI lives in ui/gradio_app.py.
 import json
+import threading
 
 from core.extractor import extract_article, extract_text
 from core.keypoints import extract_keypoints_rich
@@ -15,6 +16,8 @@ from core.sentiment import classify_sentiment
 from core.impact import aggregate_by_pestle, overall_impact, ddrm_status, point_impact
 from core.roadmap_matcher import match_roadmap_items
 from core.guidance import generate_guidance, generate_expert_guidance
+from config import DDRM_THRESHOLDS
+from core.guidance import resolve_guidance_model
 
 
 # ─────────────────────────────────────────────────────────────
@@ -173,7 +176,20 @@ def _parse_roadmap_json(roadmap_json: str) -> dict | None:
     return roadmap
 
 
-def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str = "", use_expert_workshop: bool = True) -> dict:
+_PIPELINE_LOCK = threading.Lock()
+
+
+def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, roadmap_json: str = "", use_expert_workshop: bool = True, llm_model: str | None = None, allow_external_ai: bool = False) -> dict:
+    # ponytail: serialize this local prototype; use isolated model workers for concurrent service deployment.
+    # Transformers initialization changes shared dtype state and cannot race another assessment.
+    with _PIPELINE_LOCK:
+        return _run_pipeline(input_text, input_mode, input_file, max_points, roadmap_json,
+                             use_expert_workshop, llm_model, allow_external_ai)
+
+
+def _run_pipeline(input_text, input_mode, input_file, max_points, roadmap_json, use_expert_workshop, llm_model, allow_external_ai):
+    model = resolve_guidance_model(llm_model)
+    roadmap = _parse_roadmap_json(roadmap_json)
     title, text = _load_input(input_text, input_mode, input_file)
 
     keypoints = extract_keypoints_rich(text, max_points=int(max_points))
@@ -245,6 +261,7 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, 
         "title": title,
         "verdict": verdict,
         "severity": severity,
+        "thresholds": dict(DDRM_THRESHOLDS),
         "reason": reason,
         "by_pestle": by_pestle,
         "evidence": evidence,
@@ -252,15 +269,14 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, 
         "guidance": {},
     }
 
-    roadmap = _parse_roadmap_json(roadmap_json)
     if roadmap:
         matches = match_roadmap_items(result, roadmap)
         result["roadmap_title"] = roadmap.get("title") or "Untitled roadmap"
         result["roadmap_matches"] = matches
         if use_expert_workshop:
-            result["guidance"] = generate_expert_guidance(result, roadmap, matches)
+            result["guidance"] = generate_expert_guidance(result, roadmap, matches, llm_model=model, allow_external_ai=allow_external_ai)
         else:
-            result["guidance"] = generate_guidance(result, matches)
+            result["guidance"] = generate_guidance(result, matches, llm_model=model, allow_external_ai=allow_external_ai)
 
     return result
 

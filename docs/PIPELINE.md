@@ -209,11 +209,12 @@ Step 5: 1.0 ≥ 0.65 → **Revise**.
 
 ## Stage 7 — Guidance (`src/core/guidance.py`)
 
-Two modes — chosen automatically based on inputs.
+Two modes — hosted guidance requires explicit opt-in; offline guidance is the default.
 
 ### Deterministic mode (default fallback)
 
 Used when:
+- External AI is off in the request or `DDRM_EXTERNAL_AI=off`, OR
 - No `OPENROUTER_API_KEY` configured, OR
 - No matched items, OR
 - All expert calls failed.
@@ -229,7 +230,8 @@ Used when:
 
 ### Expert workshop mode (LLM)
 
-Used when verdict ≠ Maintain AND `OPENROUTER_API_KEY` is set AND there are
+Used when the request opts in, the server permits hosted guidance, the selected
+model is allowlisted, the verdict is not Maintain, a key is set, and there are
 matches with active drivers in their lane.
 
 For each active PESTLE role:

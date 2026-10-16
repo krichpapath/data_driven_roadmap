@@ -25,7 +25,7 @@
 import re
 from typing import List, Tuple, Dict, Any
 
-from config import KEYPOINTS_MIN, KEYPOINTS_MAX, PESTLE_LABELS
+from config import KEYPOINTS_MIN, KEYPOINTS_MAX, PESTLE_LABELS, MODEL_REVISIONS
 
 try:
     from config import PESTLE_LABEL_VERBALIZED
@@ -117,7 +117,7 @@ def _split_sentences(text: str) -> List[str]:
 def _get_embedder():
     if "model" not in _model_cache:
         from sentence_transformers import SentenceTransformer
-        _model_cache["model"] = SentenceTransformer(KEYPOINTS_EMBED_MODEL)
+        _model_cache["model"] = SentenceTransformer(KEYPOINTS_EMBED_MODEL, revision=MODEL_REVISIONS[KEYPOINTS_EMBED_MODEL], trust_remote_code=False)
     return _model_cache["model"]
 
 

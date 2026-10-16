@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any, Dict
@@ -17,7 +18,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from ui.app import run_pipeline  # noqa: E402  (import after sys.path mutation)
-from config import KEYPOINTS_MIN, KEYPOINTS_MAX  # noqa: E402
+from config import KEYPOINTS_MIN, KEYPOINTS_MAX, DDRM_THRESHOLDS, GUIDANCE_MODELS  # noqa: E402
+from core.guidance import resolve_guidance_model  # noqa: E402
 
 VALID_INPUT_MODES = {"URL", "Text"}
 DEFAULT_INPUT_MODE = "Text"
@@ -35,6 +37,8 @@ class RecommendRequest(BaseModel):
     max_points: int = DEFAULT_KEYPOINTS
     roadmap: Dict[str, Any]
     use_expert_workshop: bool = True
+    llm_model: str | None = None
+    allow_external_ai: bool = False
 
 
 class RecommendResponse(BaseModel):
@@ -62,15 +66,19 @@ def health() -> Dict[str, str]:
 
 @app.post("/api/recommend", response_model=RecommendResponse)
 def recommend(req: RecommendRequest) -> RecommendResponse:
-    mode = req.input_mode if req.input_mode in VALID_INPUT_MODES else DEFAULT_INPUT_MODE
     try:
+        if req.input_mode not in VALID_INPUT_MODES:
+            raise ValueError("Input mode must be Text or URL.")
+        model = resolve_guidance_model(req.llm_model)
         result = run_pipeline(
             input_text=req.input_text,
-            input_mode=mode,
+            input_mode=req.input_mode,
             input_file=None,
             max_points=_clamp(int(req.max_points), KEYPOINTS_MIN, KEYPOINTS_MAX),
             roadmap_json=json.dumps(req.roadmap, ensure_ascii=False),
             use_expert_workshop=bool(req.use_expert_workshop),
+            llm_model=model,
+            allow_external_ai=req.allow_external_ai,
         )
         return RecommendResponse(result=result)
     except ValueError as exc:
@@ -78,7 +86,15 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
+        logging.getLogger(__name__).exception("Advisor failed")
         raise HTTPException(status_code=500, detail="Advisor failed unexpectedly. Check server logs.") from exc
+
+
+@app.get("/api/config")
+def public_config() -> Dict[str, Any]:
+    return {"guidance_models": list(GUIDANCE_MODELS), "thresholds": DDRM_THRESHOLDS,
+            "keypoints_min": KEYPOINTS_MIN, "keypoints_max": KEYPOINTS_MAX,
+            "external_ai_default": False}
 
 
 if __name__ == "__main__":

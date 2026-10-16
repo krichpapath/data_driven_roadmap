@@ -135,18 +135,16 @@ broken the project's central claim.
 
 ---
 
-## How it was evaluated
+## How to evaluate the current version
 
-For your report, the evaluation was:
+The repository contains ten synthetic Digital Industry scenarios with
+expected verdicts, a roadmap fixture, and backend/frontend unit suites.
+Run the unit tests for the helper logic and `python tools/e2e_check.py` against
+the running API for real-model verdicts. See [Testing](../TESTING.md).
 
-- **10 synthetic Digital Industry scenarios** with known expected verdicts.
-  All ten produce the expected label.
-- **1 roadmap fixture** for testing item matching.
-- **104 automated tests** — 54 backend, 50 frontend.
-- **1 manual expert review** by a roadmap domain expert, which supported the
-  workflow's usefulness for review preparation.
-
-Details in [Research background](../research/background.md).
+The completed academic evaluation, including reported expert feedback, is
+preserved in `archive/university/docs/research/background.md`. Those historical
+results do not replace validation of the current code and installed models.
 
 ---
 

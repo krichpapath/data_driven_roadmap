@@ -187,10 +187,12 @@ For test philosophy, coverage breakdown, and how to write a new test, read
 
 **Model loading is global mutable cache.**
 `_pipeline_cache`, `_model_cache`, `_classifier`, and `_dotenv_loaded` are
-module-level singletons. Fine under single-process uvicorn. **Will multiply RAM
+module-level singletons. Pipeline calls are serialized to prevent concurrent
+initialization from corrupting shared model dtype state. **Will multiply RAM
 linearly under `--workers > 1`.** Document this if you ever scale out.
 
-**LLM is optional.** No `OPENROUTER_API_KEY` → `generate_guidance()`
+**LLM is optional and off by default.** Without request opt-in, when the server
+sets `DDRM_EXTERNAL_AI=off`, or without a key, `generate_guidance()`
 returns a deterministic policy-based suggestion. The frontend handles both
 shapes (new `expert_advices` map; legacy `item_guidance` list).
 

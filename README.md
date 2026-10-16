@@ -1,272 +1,161 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/R0mj41T3)
+# Roadmap Review
 
-**รหัสโครงงาน:** 68-1_22_nrc-r1
+Build a technology roadmap and assess how news affects it. The application
+returns **Maintain**, **Adjust**, or **Revise**, with supporting sentences,
+affected roadmap items, and suggested review actions. Final judgment belongs
+to the roadmap owner.
 
-**ชื่อโครงงาน (ไทย):** โครงการศึกษาและพัฒนากลไกการประเมินผลกระทบจากปัจจัยและแนวโน้มสำหรับการติดตามสถานะแผนที่นำทางการวิจัยและพัฒนาเทคโนโลยี
+## Current development baseline
 
-**Project Title (Eng):** DRIVERS AND TRENDS IMPACT ASSESSMENT MECHANISM FOR DYNAMIC TECHNOLOGY ROADMAP STATUS MONITORING
+The application has a Python API and a React browser interface. Roadmaps are
+saved in the browser's `localStorage`; there is no database. Export important
+roadmaps before clearing browser data.
 
-**อาจารย์ที่ปรึกษาโครงงาน:** อ.ดร. นวฤกษ์ ชลารักษ์
+The October 2026 cleanup resumes development from the existing application.
+Completed university work and old research material are preserved in
+[the archive](archive/README.md). Historical evaluation results are references,
+not evidence that a new version has passed validation.
 
-**ผู้จัดทำโครงงาน:**
-1. นายกฤชประพัตธ์ เลิศประเสริฐภากร  `6509681083`  `krichpapath.ler@dome.tu.ac.th`
+Phase 1 verification: **82 Python tests, 54 JavaScript tests, and all ten
+English model scenarios pass**. Verdicts and four-decimal severity values match
+the recorded baseline. See the [readiness report](docs/readiness/report.md)
+for browser checks, dependency decisions, known limitations, and the
+[31-requirement / 15-scenario checklist](docs/readiness/requirements-checklist.md).
+The subsequent advice-model upgrade passes **96 Python and 54 JavaScript tests**,
+plus one real OpenRouter smoke request for each of the five selected models.
 
----
+New readiness documents under `docs/readiness/`, university archives and private
+learning notes are local-only and are not included in a Git clone. Links to those
+reports are for the working copy; keep a separate backup of the local archive.
 
-# Roadmap Review Application
+## Setup
 
-Paste a news article, get back whether your technology roadmap still holds:
-**Maintain**, **Adjust**, or **Revise** — with the evidence behind the verdict.
+The locked environment was verified on **Windows x64, Python 3.14.8 and
+Node.js 24.18.0**. Frontend tests require Node 22.12+, 24+, or 26+
+(as supported by Vitest 5); Node 24 is the tested choice. Other Python/OS
+combinations need their own installation and model regression check.
+The browser loads React and Babel from CDNs. Model downloads require internet
+access on first use and several GB of disk space.
 
-The pipeline extracts key sentences, sorts them into PESTLE categories, scores
-sentiment per category, computes a severity from 0.00 to 1.00, matches affected
-roadmap items, and suggests a review action. Final judgment stays with the
-roadmap owner.
+The existing `venv/` is the preserved baseline. Use `.venv-readiness/` for the
+updated application. From the repository root, create and activate it:
 
-> 📖 **New here? Read the [Developer Handbook](docs/index.md)** — it covers
-> everything below in depth, plus how the code actually works.
+**Windows PowerShell**
 
----
-
-## Requirements
-
-| Software | Version | Needed for |
-| --- | --- | --- |
-| Python | 3.10+ | Everything |
-| Git | any | Cloning |
-| Web browser | any modern | The UI |
-| Node.js | 18+ | Frontend tests only (optional) |
-
-Disk: ~2 GB of Python packages, plus ~2.5 GB of AI models downloaded on first run.
-
----
-
-## Install
-
-```bash
-git clone https://github.com/ComSciThammasatU/2568-2-cs403-final-submission-68-1_22_nrc-r1.git
-```
-
-```bash
-cd 2568-2-cs403-final-submission-68-1_22_nrc-r1
-```
-
-Create and activate a virtual environment.
-
-**Windows**
-
-```bash
-python -m venv venv && venv\Scripts\activate
+```powershell
+python -m venv .venv-readiness
+.\.venv-readiness\Scripts\Activate.ps1
 ```
 
 **macOS / Linux**
 
 ```bash
-python3 -m venv venv && source venv/bin/activate
+python3 -m venv .venv-readiness
+source .venv-readiness/bin/activate
 ```
 
-Install dependencies:
+Install the application and development dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.lock
+# Optional Gradio and documentation tools:
+python -m pip install -r requirements-dev.lock
 ```
 
-Optional — tests, docs, and the Gradio dev UI:
+The first lock includes the application and its test tools. The second lock
+adds MkDocs and the optional Gradio development interfaces. Direct dependency
+versions are recorded separately in `requirements.txt` and `requirements-dev.txt`.
+For frontend tests, run `npm ci` inside `roadmap_builder/`.
 
-```bash
-pip install -r requirements-dev.txt
-```
+Optional: copy `.env.example` to `.env` and set `OPENROUTER_API_KEY` for
+LLM-written advice. Hosted AI is **off by default** in the interface. To opt in,
+set `DDRM_EXTERNAL_AI=on` and enable **Use hosted AI guidance** in advisor
+settings. `DDRM_EXTERNAL_AI=off` blocks hosted guidance even if the browser
+opts in. The server allowlist is in `src/config.py`. Keep `.env` local.
 
-Optional — LLM-written advice. Without a key the app falls back to fixed
-rule-based advice. Create `.env` in the project root:
-
-```text
-OPENROUTER_API_KEY=your_key_here
-```
-
-Never commit `.env`; it is already in `.gitignore`.
-
----
+Advice defaults to **GPT-6 Luna**. The picker also offers **GPT-6.1 Sol**,
+**Claude Sonnet 5.5**, **Claude Haiku 5.5**, and **Qwen3.7 Plus** through OpenRouter.
+Old GPT-4o browser selections and environment defaults migrate to Luna.
+See [advice model upgrade](docs/readiness/advice-model-upgrade.md) for request
+settings, verification and limitations. Restart the API and refresh the browser
+after updating.
 
 ## Run
 
-Two terminals, both with the venv activated.
+Use two terminals with the virtual environment activated.
 
-**Terminal 1 — backend API** (port 7875)
+**Terminal 1 — API**
 
 ```bash
 python src/api/roadmap_api.py
 ```
 
-**Terminal 2 — web UI** (port 8000)
+**Terminal 2 — browser interface**
 
 ```bash
-cd roadmap_builder && python -m http.server 8000
+cd roadmap_builder
+python -m http.server 8000 --bind 127.0.0.1
 ```
 
-Open <http://127.0.0.1:8000>.
+Open <http://127.0.0.1:8000>. The health endpoint at
+<http://127.0.0.1:7875/api/health> should return `{"status":"ok"}`.
+There is no application build step.
 
-Health check: <http://127.0.0.1:7875/api/health> returns `{"status":"ok"}`.
+Create a roadmap from the Industrial Digital template, open **News Impact**,
+and paste an article or URL. Keep **Evidence points** at **7** for the existing
+calibration. The first assessment loads or downloads the AI models; latency
+depends on the machine and input.
 
-> ⏱️ The **first** assessment takes several minutes while models download.
-> Later runs take 45–60 seconds.
+## Test and document
 
-### Using it
-
-1. **New roadmap** → pick the **Industrial Digital** template.
-2. Open the **Assess news** panel.
-3. Paste article text, or switch to **News URL**.
-4. Leave **Evidence points** at **7** — the scoring thresholds are calibrated
-   at that value, and changing it shifts verdicts.
-5. Click **Run**. Read the verdict, evidence, matched items, and advice.
-
-Test articles with known answers live in `testdata/`; the filename states the
-expected verdict, e.g. `adjust_01_chip_export_controls.txt`.
-
----
-
-## Tests
-
-```bash
-pytest
-```
-
-```bash
-cd roadmap_builder && npm test
-```
-
-End-to-end — replays all 10 `testdata/` scenarios through the live API and
-checks every verdict. Needs the backend running:
-
-```bash
-python tools/e2e_check.py
-```
-
-| Suite | Count | Runtime |
+| Command | Working directory | Purpose |
 | --- | --- | --- |
-| Backend (pytest) | 54 | < 1 s |
-| Frontend (Vitest) | 50 | < 1 s |
-| End-to-end scenarios | 10 | ~8 min |
+| `python -m pytest` | Repository root | Backend unit tests |
+| `npm test` | `roadmap_builder/` | Frontend helper tests |
+| `npm run test:watch` | `roadmap_builder/` | Watch frontend tests |
+| `python tools/e2e_check.py` | Repository root | Ten real-model scenarios; API must be running |
+| `python tools/diagnose_impact.py testdata/adjust_01_chip_export_controls.txt` | Repository root | Inspect scoring; writes diagnostic output |
+| `mkdocs serve -a 127.0.0.1:8001` | Repository root | Preview the handbook |
+| `mkdocs build --strict` | Repository root | Build the handbook into `site/` |
 
----
+Unit tests do not load AI models. Frontend tests exercise mirrored helper
+functions, not the React interface; advisor/storage tests use the actual shared helpers. See [Testing](docs/TESTING.md) for limits
+and the end-to-end workflow. The scenario runner sets `allow_external_ai=False` and asserts deterministic
+guidance. It makes no hosted guidance calls.
 
-## Documentation
-
-The **Developer Handbook** in `docs/` is the full guide. Read it as a website:
-
-```bash
-pip install -r requirements-dev.txt
-```
-
-```bash
-mkdocs serve -a 127.0.0.1:8001
-```
-
-Open <http://127.0.0.1:8001>.
-
-> ⚠️ Use port **8001** — port 8000 is taken by the roadmap builder.
-
-Build a static copy into `site/`:
-
-```bash
-mkdocs build
-```
-
-Everything is plain Markdown, so it also reads fine on GitHub without
-installing anything. Start at [`docs/index.md`](docs/index.md).
-
-| Page | Covers |
-| --- | --- |
-| [Start here](docs/index.md) | What this is, where to go next |
-| [Set up a new computer](docs/getting-started/prerequisites.md) | Bare machine → Python, Git, editor |
-| [Install](docs/getting-started/installation.md) | Full installation walkthrough |
-| [Run the app](docs/getting-started/first-run.md) | Both servers, explained |
-| [First assessment](docs/getting-started/first-assessment.md) | Reading the results |
-| [The problem it solves](docs/guide/the-problem.md) | Why roadmaps go stale |
-| [How it works](docs/guide/how-it-works.md) | The seven pipeline stages |
-| [The scoring maths](docs/guide/scoring.md) | Severity, with a worked example |
-| [Codebase tour](docs/guide/codebase-tour.md) | What each file does |
-| [Common tasks](docs/guide/common-tasks.md) | Recipes for likely changes |
-| [Troubleshooting](docs/guide/troubleshooting.md) | Real failures, real causes |
-| [Research background](docs/research/background.md) | DDRM, PESTLE, evaluation |
-
-Deep dives: [Architecture](docs/ARCHITECTURE.md) · [Pipeline](docs/PIPELINE.md)
-· [Frontend](docs/FRONTEND.md) · [Testing](docs/TESTING.md) ·
-[Contributing](docs/CONTRIBUTING.md)
-
----
-
-## Project layout
+## Project map
 
 ```text
-src/config.py      every tunable number — thresholds, weights, model names
-src/core/          the 7 pipeline stages, one file each
-src/api/           FastAPI backend (2 endpoints)
-src/ui/app.py      run_pipeline() — orchestrates the stages
-roadmap_builder/   browser UI (React, no build step)
-tests/             pytest suites
-tools/             diagnostics + end-to-end check
-testdata/          10 labelled news scenarios + roadmap fixture
-docs/              developer handbook
-final_reports/     submitted report and abstracts
+src/
+  api/roadmap_api.py    HTTP entry point
+  ui/app.py            run_pipeline() orchestration
+  ui/                  optional Gradio interfaces
+  core/                extraction, classification, scoring, matching, advice
+  config.py            model choices, weights, and thresholds
+roadmap_builder/       React interface, CSS, and frontend tests
+tests/                 Python unit tests
+testdata/              labelled news scenarios and roadmap fixture
+tools/                 diagnostics and scenario runner
+docs/                  active developer handbook
+archive/               retired academic material and earlier snapshots
 ```
 
-`document/`, `references/`, and `archive/` hold report material, research
-papers, and old snapshots. They are excluded from git by design.
+`venv/`, `node_modules/`, caches, and the generated `site/` are local outputs.
+The archive index explains which historical files are retained in Git and
+which exist only in this checkout.
 
----
+## Where to start
 
-## Command reference
+- [Developer handbook](docs/index.md): setup, usage, and current limitations.
+- [Codebase tour](docs/guide/codebase-tour.md): responsibilities and reading order.
+- [Architecture](docs/ARCHITECTURE.md): data flow and API contract.
+- [Scoring](docs/guide/scoring.md) and [value guide](IMPACT_VALUES_GUIDE.md): the current formula and tuning controls.
+- [Contributing](docs/CONTRIBUTING.md): change workflow and maintenance concerns.
+- [Changelog](CHANGELOG.md): dated changes and historical rationale.
 
-| Command | Does |
-| --- | --- |
-| `python src/api/roadmap_api.py` | Start the backend |
-| `cd roadmap_builder && python -m http.server 8000` | Start the UI |
-| `mkdocs serve -a 127.0.0.1:8001` | Read the handbook |
-| `mkdocs build` | Build the docs site into `site/` |
-| `pytest` | Backend tests |
-| `cd roadmap_builder && npm test` | Frontend tests |
-| `python tools/e2e_check.py` | Verify all 10 scenarios |
-| `python tools/diagnose_impact.py <file.txt>` | Dump the full scoring chain |
-
----
-
-## Key settings
-
-All in `src/config.py`. Re-run `python tools/e2e_check.py` after changing any of
-them — they were calibrated together.
-
-| Setting | Value | Meaning |
-| --- | --- | --- |
-| `KEYPOINTS_MAX` | 7 | Sentences extracted per article |
-| `DDRM_THRESHOLDS` | 0.35 / 0.65 | Adjust / Revise cutoffs |
-| `TOLERANCE_BANDS` | 0.35 / 0.60 | Minor / moderate / major buckets |
-| `PESTLE_MIN_CONFIDENCE` | 0.65 | Below this, evidence is discarded |
-
----
-
-## Final submission files
-
-Report files in `final_reports/`, with these exact names:
-
-```text
-final_reports/68-1_CS403_68-1_22_nrc-r1.pdf
-final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_th.txt
-final_reports/68-1_CS403_68-1_22_nrc-r1_abstract_en.txt
-```
-
-Demo video link in:
-
-```text
-demo/68-1_CS403_68-1_22_nrc-r1_demo_link.txt
-```
-
-Video named `68-1_CS403_68-1_22_nrc-r1_demo.mp4`, publicly accessible or
-viewable by anyone with the link.
-
----
+Read `src/config.py` before tuning models or thresholds. Recheck all scenarios
+after changes to scoring or classification.
 
 ## License
 
-CS403 research prototype, Department of Computer Science, Thammasat University.
-See [LICENSE](LICENSE).
+See [LICENSE](LICENSE) for the existing copyright and usage terms.

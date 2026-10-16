@@ -3,7 +3,7 @@
 const ADVISOR_API_KEY = "ddrm_advisor_api_url";
 const ADVISOR_MODEL_KEY = "ddrm_advisor_llm_model";
 const DEFAULT_ADVISOR_API = "http://127.0.0.1:7875/api/recommend";
-const DEFAULT_ADVISOR_MODEL = "gpt-4o-mini";
+const DEFAULT_ADVISOR_MODEL = "openai/gpt-6-luna";
 const EVIDENCE_SNIPPET_MAX = 220;
 // Mirrors KEYPOINTS_MIN / KEYPOINTS_MAX in src/config.py. The impact bands are
 // calibrated at KEYPOINTS_MAX, so asking for fewer points shifts verdicts.
@@ -11,14 +11,6 @@ const EVIDENCE_SNIPPET_MAX = 220;
 const KEYPOINTS_MIN = 3;
 const KEYPOINTS_MAX = 7;
 
-const ADVISOR_MODEL_OPTIONS = [
-  { value: "gpt-4o",        label: "GPT-4o — best quality, slower",         tier: "premium" },
-  { value: "gpt-4o-mini",   label: "GPT-4o mini — fast, cheap (default)",   tier: "default" },
-  { value: "gpt-4-turbo",   label: "GPT-4 Turbo — strong reasoning",        tier: "premium" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo — cheapest, lower depth", tier: "budget"  },
-  { value: "o1-mini",       label: "o1-mini — reasoning model",             tier: "premium" },
-  { value: "o3-mini",       label: "o3-mini — newer reasoning model",       tier: "premium" },
-];
 
 // localStorage-backed state. Reads once on mount; writes on every change.
 // Falls back to `defaultValue` when storage is empty or unavailable.
@@ -84,12 +76,7 @@ function actionIcon(tone) {
   return "check";
 }
 
-function severityBucket(s) {
-  const v = Number(s || 0);
-  if (v >= 0.66) return "High";
-  if (v >= 0.33) return "Med";
-  return "Low";
-}
+const severityBucket = AdvisorUtils.severityBucket;
 
 function pestleColor(label) {
   const p = PESTLE.find(x => x.label === label);
@@ -125,7 +112,7 @@ function friendlyAdvisorError(error, status) {
     return "Advisor API is not running. Start `python src/api/roadmap_api.py` and retry.";
   }
   if (status === 400) {
-    return `Input needs more usable news text. ${raw}`;
+    return `Assessment could not start. ${raw}`;
   }
   if (status === 503) {
     return `Impact model is not ready. ${raw}`;
@@ -139,6 +126,9 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [fileDragOver, setFileDragOver] = React.useState(false);
   const [apiUrl, setApiUrl] = useLocalStorageState(ADVISOR_API_KEY, DEFAULT_ADVISOR_API);
   const [llmModel, setLlmModel] = useLocalStorageState(ADVISOR_MODEL_KEY, DEFAULT_ADVISOR_MODEL);
+  const [allowExternalAI, setAllowExternalAI] = React.useState(false);
+  const [modelOptions, setModelOptions] = React.useState([]);
+  const [configError, setConfigError] = React.useState("");
   const [inputMode, setInputMode] = React.useState("Text");
   const [newsText, setNewsText] = React.useState("");
   const [fileName, setFileName] = React.useState("");
@@ -151,6 +141,24 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   const [actionFilter, setActionFilter] = React.useState("all"); // all | revise | adjust | maintain
   const [expertFilter, setExpertFilter] = React.useState("all"); // all | <PESTLE role>
   const [showReasoning, setShowReasoning] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    setAllowExternalAI(false);
+    setModelOptions([]);
+    setConfigError("");
+    const configUrl = apiUrl.replace(/\/recommend\/?$/, "/config");
+    fetch(configUrl, { signal: controller.signal })
+      .then(r => { if (!r.ok) throw new Error("Unable to load advisor settings."); return r.json(); })
+      .then(c => {
+        if (!Array.isArray(c.guidance_models) || !c.guidance_models.length) throw new Error("API returned no guidance models.");
+        setModelOptions(c.guidance_models);
+        setLlmModel(current => c.guidance_models.includes(current) ? current : c.guidance_models[0]);
+      })
+      .catch(e => { if (e.name !== "AbortError") setConfigError(friendlyAdvisorError(e)); });
+    return () => controller.abort();
+  }, [open, apiUrl]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -286,6 +294,9 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
   };
 
   const runAdvisor = async () => {
+    if (busy) return;
+    setResult(null);
+    setSelected(new Set());
     if (!newsText.trim()) {
       setError(inputMode === "File" ? "Load a .txt file first." : "Add news URL or article text first.");
       return;
@@ -302,7 +313,8 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
           input_text: newsText.trim(),
           input_mode: inputMode === "File" ? "Text" : inputMode,
           max_points: maxPoints,
-          llm_model: llmModel,
+          llm_model: allowExternalAI ? llmModel : null,
+          allow_external_ai: allowExternalAI,
           roadmap: state
         })
       });
@@ -313,6 +325,7 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
         throw err;
       }
       const data = await res.json();
+      if (!AdvisorUtils.validResult(data.result)) throw new Error("API returned an incomplete assessment. Retry or check server logs.");
       setResult(data.result);
       // Pre-select all items that received advice (new shape first, legacy fallback second).
       const expertMap = data.result.guidance?.expert_advices || {};
@@ -475,19 +488,26 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
 
           <details className="advisor-settings">
             <summary><Icon name="settings" size={13} /> Settings</summary>
+            <label className="field-label">
+              <input type="checkbox" checked={allowExternalAI} disabled={busy || !modelOptions.length}
+                onChange={e => setAllowExternalAI(e.target.checked)} /> Use hosted AI guidance
+            </label>
+            <div className="field-help">Off uses deterministic advice and makes no hosted guidance calls. On sends evidence and matched roadmap items to OpenRouter.</div>
+            {configError && <p role="alert">{configError}</p>}
             <div className="field">
               <label className="field-label" htmlFor="advisor-llm-model">LLM advice model</label>
               <select
                 id="advisor-llm-model"
                 className="field-input"
                 value={llmModel}
+                disabled={busy || !allowExternalAI || !modelOptions.length}
                 onChange={e => setLlmModel(e.target.value)}
               >
-                {ADVISOR_MODEL_OPTIONS.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {modelOptions.map(m => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
-              <div className="field-help">OpenAI model used for guidance. Backend must have <code>OPENAI_API_KEY</code> configured.</div>
+              <div className="field-help">Server-approved OpenRouter models. Hosted advice requires <code>OPENROUTER_API_KEY</code> on the backend.</div>
             </div>
             <div className="field">
               <label className="field-label" htmlFor="advisor-api-url">API endpoint</label>
@@ -571,15 +591,15 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                       aria-valuenow={sevPct}
                       aria-valuemin={0}
                       aria-valuemax={100}
-                      aria-label={`Severity ${severityBucket(sev)} (${sevPct}%)`}>
+                      aria-label={`Severity ${severityBucket(sev, result.thresholds)} (${sevPct}%)`}>
                       <div className="advisor-severity-header">
-                        <span className="advisor-severity-label">Severity · {severityBucket(sev)}</span>
+                        <span className="advisor-severity-label">Severity · {severityBucket(sev, result.thresholds)}</span>
                         <span className="advisor-severity-value num">{sev.toFixed(2)}</span>
                       </div>
                       <div className="advisor-severity-track">
                         <div className="advisor-severity-fill" style={{ width: `${sevPct}%` }} />
-                        <span className="advisor-severity-tick" style={{ left: "33%" }} aria-hidden="true" />
-                        <span className="advisor-severity-tick" style={{ left: "66%" }} aria-hidden="true" />
+                        <span className="advisor-severity-tick" style={{ left: `${result.thresholds.adjust * 100}%` }} aria-hidden="true" />
+                        <span className="advisor-severity-tick" style={{ left: `${result.thresholds.revise * 100}%` }} aria-hidden="true" />
                       </div>
                       <div className="advisor-severity-scale" aria-hidden="true">
                         <span>Low</span><span>Med</span><span>High</span>
@@ -791,6 +811,8 @@ function ImpactAdvisor({ open, onClose, state, onApplyGuidance }) {
                 <div className="advisor-summary-note">
                   <p>{guidance.summary}</p>
                   <p className="advisor-provider">Advisor: {guidance.llm_provider || "deterministic"}{guidance.llm_model ? ` (${guidance.llm_model})` : ""}</p>
+                  {guidance.llm_error && <p role="alert">Hosted guidance unavailable. Showing deterministic advice: {guidance.llm_error}</p>}
+                  {guidance.expert_errors && <p role="alert">Some expert guidance is unavailable: {Object.entries(guidance.expert_errors).map(([role, message]) => `${role}: ${message}`).join("; ")}</p>}
                 </div>
               )}
 

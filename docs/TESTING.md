@@ -1,22 +1,24 @@
 # Testing Guide
 
-Comprehensive reference for the test suites covering both halves of the
-DDRM Builder. Read this if you are writing a new test, debugging a failure,
-or documenting test coverage in a final report.
+Reference for the test suites covering both halves of the DDRM Builder.
+Read this when writing a test, debugging a failure, or checking what a passing
+suite actually establishes.
 
 ---
 
 ## At a glance
 
-| Suite | Framework | Where | Count | Runtime |
-|-------|-----------|-------|-------|---------|
-| Backend unit | pytest | `tests/` | 54 | < 0.3 s |
-| Frontend unit (pure helpers) | Vitest | `roadmap_builder/__tests__/exports.test.js` | 24 | < 0.5 s |
-| Frontend functional (reducers) | Vitest | `roadmap_builder/__tests__/reducers.test.js` | 26 | < 0.5 s |
-| **Total** | — | — | **104** | **≈ 1 s** |
+| Suite | Scope | Count |
+| --- | --- | --- |
+| Python | Scoring, matching, guidance, API errors, URL security | 96 |
+| JavaScript | Existing helpers/reducers plus shared advisor/storage logic | 54 |
+| Model baseline | Ten synthetic English scenarios, fixed weights/revisions | 10 |
 
-The unit suites above load no models, so they run in about a second. Model
-behaviour is covered separately by the end-to-end acceptance check below.
+The original 54 Python and 50 JavaScript tests remain included. The additional
+28 Python and 4 JavaScript cases cover Phase 1 defects; 14 further Python cases
+cover the selected advice-model upgrade. Unit tests make no
+hosted requests and do not load models. Browser checks and real articles are
+recorded separately in the [readiness report](readiness/report.md).
 
 Coverage target: every pure function in `src/core/`, every reducer-style
 helper in `roadmap_builder/app.jsx`, plus the import-JSON validator.
@@ -24,8 +26,8 @@ helper in `roadmap_builder/app.jsx`, plus the import-JSON validator.
 ## End-to-end acceptance check
 
 `tools/e2e_check.py` runs every scenario in `testdata/` through the live API and
-asserts the returned verdict matches the filename prefix (`maintain_`, `adjust_`,
-`revise_`). This is the only check that exercises the real models, so it is slow
+asserts the verdict, four-decimal severity, and deterministic guidance match
+the recorded baseline. This check exercises the real models, so it is slow
 (≈45 s per scenario, plus a one-off multi-GB model download on first run) and is
 deliberately kept out of `pytest`.
 
@@ -36,6 +38,29 @@ python tools/e2e_check.py
 ```
 
 Exit code is 0 when every scenario matches its expected verdict, 1 otherwise.
+
+The runner explicitly sets `allow_external_ai=False` and makes no hosted
+calls. To compare full model output without the API (cached models required):
+
+```bash
+python tools/readiness_check.py --compare docs/readiness/baseline.json --output tmp/comparison.json
+```
+
+Do not overwrite the baseline to make a failing update pass. Review the cause.
+The ten scenarios prove consistency, not accuracy on real news or other languages.
+
+The separately opt-in paid smoke test uses synthetic data and one GPT-6 Luna
+request by default, with a 2,048-token output cap:
+
+```bash
+python tools/hosted_smoke.py --run-hosted
+python tools/hosted_smoke.py --run-hosted --model openai/gpt-6.1-sol --output tmp/hosted-sol.json
+```
+
+This command opts in for its own process and requires an OpenRouter key.
+Do not include it in ordinary offline test runs.
+The default report is `tmp/hosted-smoke-current.json`; historical readiness evidence
+is preserved. Sol and Sonnet use a 4,096-token combined reasoning/output limit.
 
 ---
 
@@ -56,7 +81,7 @@ pytest --tb=short                   # short traceback on failure
 
 ```bash
 cd roadmap_builder
-npm install                         # only the first time
+npm ci                              # install the exact lock
 npm test                            # one-shot, exits 0 / 1
 npm run test:watch                  # interactive, re-runs on save
 ```
@@ -95,20 +120,20 @@ roadmap_builder/lib/exports.js         ← ESM mirror (test entrypoint)
 
 ## Philosophy
 
-**Three rules every contributor follows.**
+The existing suites use the following approach. Treat the coverage gaps as
+limits of the current tests, not a prohibition on testing integrations.
 
-### 1. Test pure logic only. Skip side effects.
+### 1. Keep unit tests focused on pure logic.
 
 The pipeline's verdict math is owned by `src/core/impact.py` — pure functions
-on dicts. The frontend's state transforms are owned by `app.jsx` callbacks
-that, after a tiny refactor, became pure functions in `lib/exports.js`. We
-test these directly. We do **not** test the React tree, the FastAPI HTTP
-layer, the OpenRouter SDK, or the sentence-transformers model — those are
-either trivial wiring or external dependencies whose own maintainers test
-them.
+on dicts. The frontend tests import copies of application helpers from
+`lib/exports.js`. They do not directly exercise `app.jsx` or the React tree.
+Phase 1 tests exercise the FastAPI HTTP layer and mocked provider failures.
+Actual hosted responses and real model inference require separate smoke checks. Use appropriate integration or manual
+checks when changing those boundaries.
 
-This keeps the suite fast (< 1 s combined), deterministic (no network, no
-GPU, no flaky model warm-up), and small enough to read end-to-end.
+This keeps the unit suites fast and deterministic, without network calls or
+model warm-up. It does not establish that the whole application works.
 
 ### 2. Tests are worked examples.
 
@@ -117,7 +142,7 @@ understand the impact formula chain without ever opening `impact.py`.
 Comments in test files explain *why*, not *what*. Sample inputs are
 hand-picked to illustrate boundaries, not random.
 
-### 3. Mirror, don't bundle.
+### 3. Keep the existing frontend mirror aligned.
 
 The frontend has no bundler at runtime — `<script type="text/babel">` does
 the work in the browser. To make the same code testable under Vitest, we
@@ -126,8 +151,8 @@ as ES modules. The mirror's header comment carries the maintenance contract:
 *if you change the helper in `app.jsx`, mirror the change here, or tests
 silently lock the old behaviour.*
 
-A future bundler migration (see `CONTRIBUTING.md` deferred-work) eliminates
-the mirror.
+Removing the duplication is a separate development task. A bundler migration
+is one previously suggested approach, not a prerequisite for this cleanup.
 
 ---
 
@@ -172,8 +197,9 @@ the mirror.
 | `_flatten_for_legacy` | first advice = primary, role concatenation, picks first available evidence |
 | `ACTION_BY_VERDICT` | covers exactly Maintain/Adjust/Revise with required keys |
 
-14 tests. The OpenRouter HTTP path and parallel `ThreadPoolExecutor` workshop
-are deliberately *not* unit-tested — they require network and API keys.
+These 14 helper tests are supplemented by `test_readiness.py`, which checks
+provider selection, off controls and failures with mocked HTTP boundaries.
+The separately recorded hosted smoke test checks one real provider response.
 
 #### `test_keypoints.py` — sentence splitter
 
@@ -183,7 +209,7 @@ are deliberately *not* unit-tested — they require network and API keys.
 
 4 tests. The semantic scoring path is *not* tested here — it requires
 sentence-transformers + ~90 MB of model weights on disk. Quality there is
-better validated by offline integration runs against `testdata/news_*.txt`.
+better validated by offline integration runs against `testdata/*.txt`.
 
 ### Frontend (`roadmap_builder/__tests__/`)
 
@@ -220,19 +246,16 @@ needing a DOM.
 
 ---
 
-## What's NOT covered (and why)
+## Coverage boundaries
 
-| Surface | Why skipped | How it's covered instead |
-|---------|-------------|--------------------------|
-| React rendering / DOM events | No bundler; running JSX through jsdom would require a non-trivial Babel + testing-library stack just to assert "button click toggles state" | `reducers.test.js` proves the state transform; visual smoke-test catches the wiring |
-| FastAPI HTTP path | `roadmap_api.py` is a thin Pydantic wrapper around `run_pipeline` | `run_pipeline`'s pieces are unit-tested |
-| OpenRouter call | Network dependency, costs money, non-deterministic | Strict JSON-schema at API boundary catches malformed responses; `_validate_expert_response` covered separately |
-| sentence-transformers / transformers models | 90 MB + slow first run; non-deterministic across versions | Quality validated by offline runs against `testdata/news_*.txt` |
-| `extractor.py` strategy chain | Each strategy hits a real URL; flaky | Manual smoke against `testdata/` URLs once per release |
-| URL-bar / hash routing in browser | No headless browser configured | `parseRoute` is unit-tested; one manual click-through before commit |
-
-These gaps are intentional, not oversights. Each is documented in
-`docs/CONTRIBUTING.md` § Out of scope.
+| Surface | Evidence | Remaining limitation |
+| --- | --- | --- |
+| React interface | Browser creation/edit/export, assessment and advice checks in readiness report | No automated DOM suite or cross-browser certification |
+| FastAPI | TestClient error/control regressions and ten live model scenarios | No load test or deployed-service test |
+| Hosted guidance | Mocked selection/off/failure cases and one real paid smoke | Not an evaluation of advice accuracy across providers |
+| Models | Pinned revisions and ten full-output comparisons | Synthetic consistency is not representative accuracy |
+| URL extraction | DNS/redirect/size/deadline regressions, one-download fallback test, two real articles | Footer contamination and unusual publisher layouts remain possible |
+| Browser storage | Actual shared helper tests and save/reload/export checks | Local browser storage is still the only persistence layer |
 
 ---
 
@@ -382,28 +405,12 @@ small follow-up task — see `CONTRIBUTING.md`.
 
 ---
 
-## For final-report writers
+## Reporting verified results
 
-If you are writing a thesis / report chapter on testing this system:
-
-- **Total test count:** 104 (54 backend pytest + 50 frontend Vitest).
-- **Total runtime:** under 1 second on a modern laptop.
-- **Coverage approach:** pure-function unit tests + reducer-style functional
-  tests, deliberately scoped to avoid network / model dependencies.
-- **Worked-example pattern:** each test in `tests/test_impact.py` corresponds
-  to a numbered step of the DDRM formula chain in `docs/PIPELINE.md`.
-- **Composed scenario:** the final case in `reducers.test.js` simulates a 7-step
-  user session (add → edit → move → restructure → advisor → validate),
-  proving end-to-end state-shape invariants without a browser.
-- **Gaps acknowledged:** React rendering, HTTP path, OpenRouter, transformer
-  models — all listed in this doc with rationale (above).
-
-A natural figure for the report:
-
-> *Figure N — Test pyramid for DDRM Builder. Pure-function unit tests at the
-> base (54 backend, 24 frontend), reducer-style functional tests in the
-> middle (26 frontend), zero browser/end-to-end tests at the top (deferred,
-> rationale documented). Total: 104 tests, ≈1 s runtime.*
+Use the dated [readiness report](readiness/report.md) when reporting the current
+baseline. Preserve the distinction between unit tests, live model regression,
+manual browser checks, and real-article quality inspection. Historical academic
+results are retained in the archive; they do not establish current acceptance.
 
 ---
 

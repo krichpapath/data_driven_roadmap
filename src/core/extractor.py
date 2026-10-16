@@ -10,6 +10,7 @@
 
 from typing import Tuple, Optional
 import re
+from core.url_fetch import fetch_html
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -30,7 +31,7 @@ def _extract_trafilatura(url: str, html: Optional[str] = None) -> Tuple[str, str
     cfg.set("DEFAULT", "USER_AGENTS", USER_AGENT)
     cfg.set("DEFAULT", "DOWNLOAD_TIMEOUT", "20")
 
-    downloaded = html or trafilatura.fetch_url(url, config=cfg)
+    downloaded = html
     if not downloaded:
         return "", ""
 
@@ -52,7 +53,7 @@ def _extract_trafilatura(url: str, html: Optional[str] = None) -> Tuple[str, str
 
 # ─── strategy 2: newspaper3k ──────────────────────────────────────────────────
 
-def _extract_newspaper(url: str) -> Tuple[str, str]:
+def _extract_newspaper(url: str, html: str) -> Tuple[str, str]:
     from newspaper import Article, Config
 
     cfg = Config()
@@ -61,7 +62,7 @@ def _extract_newspaper(url: str) -> Tuple[str, str]:
     cfg.fetch_images = False
 
     article = Article(url, config=cfg)
-    article.download()
+    article.set_html(html)
     article.parse()
     return (article.title or "").strip(), (article.text or "").strip()
 
@@ -69,14 +70,8 @@ def _extract_newspaper(url: str) -> Tuple[str, str]:
 # ─── strategy 3: readability-lxml ─────────────────────────────────────────────
 
 def _extract_readability(url: str, html: Optional[str] = None) -> Tuple[str, str]:
-    import requests
     from readability import Document
     from bs4 import BeautifulSoup
-
-    if html is None:
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=20)
-        resp.raise_for_status()
-        html = resp.text
 
     doc = Document(html)
     title = (doc.short_title() or "").strip()
@@ -89,13 +84,7 @@ def _extract_readability(url: str, html: Optional[str] = None) -> Tuple[str, str
 # ─── strategy 4: BeautifulSoup heuristic ──────────────────────────────────────
 
 def _extract_bs4(url: str, html: Optional[str] = None) -> Tuple[str, str]:
-    import requests
     from bs4 import BeautifulSoup
-
-    if html is None:
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=20)
-        resp.raise_for_status()
-        html = resp.text
 
     soup = BeautifulSoup(html, "html.parser")
 
@@ -134,12 +123,11 @@ def extract_article(url: str) -> Tuple[str, str]:
 
     errors = []
 
-    # Cache HTML once for strategies that can reuse it (3 and 4)
-    cached_html: Optional[str] = None
+    url, cached_html = fetch_html(url)
 
     strategies = [
-        ("trafilatura",  lambda: _extract_trafilatura(url)),
-        ("newspaper3k",  lambda: _extract_newspaper(url)),
+        ("trafilatura",  lambda: _extract_trafilatura(url, cached_html)),
+        ("newspaper3k",  lambda: _extract_newspaper(url, cached_html)),
         ("readability",  lambda: _extract_readability(url, cached_html)),
         ("bs4",          lambda: _extract_bs4(url, cached_html)),
     ]
@@ -164,7 +152,7 @@ def extract_article(url: str) -> Tuple[str, str]:
         return best  # short but non-empty — better than nothing
 
     raise ValueError(
-        f"All extraction strategies failed for: {url}\n" + "\n".join(errors)
+        "No readable article text was found. The page may require a login or JavaScript; paste the article text instead."
     )
 
 
