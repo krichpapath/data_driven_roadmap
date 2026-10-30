@@ -1,8 +1,15 @@
-/* global React, ReactDOM, Icon, InfoDot, StartScreen, TemplatePicker, CoachRail, RoadmapGrid, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
+/* global React, ReactDOM, SourceStore, SourceWorkspace, Icon, Logo, InfoDot, StartScreen, TemplatePicker, LibraryPage, useRoadmapFolders, RoadmapPage, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, HistoryPage, Landing, RoadmapHistory, AdvisorUtils, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
 const LEGACY_STORAGE_KEY = "ddrm_v1";
 const ROADMAPS_KEY = "ddrm_roadmaps_v1";
 const TOAST_DURATION_MS = 2200;
 const UNDO_LIMIT = 30;
+
+// Who made a change: one stable id per browser (there are no user accounts).
+const HISTORY_ACTOR = (() => {
+  let id = null;
+  try { id = localStorage.getItem("ddrm_actor_id"); if (!id) localStorage.setItem("ddrm_actor_id", id = `u_${crypto.randomUUID()}`); } catch {}
+  return { id, name: id ? `Browser ${id.slice(-4)}` : null };
+})();
 
 function createRoadmapId() {
   return `rm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -25,6 +32,7 @@ function makeRecord(state, id = createRoadmapId(), updatedAt = new Date().toISOS
   return {
     id,
     title: titleOf(state),
+    createdAt: updatedAt,
     updatedAt,
     state: { ...state, title: titleOf(state) }
   };
@@ -50,7 +58,11 @@ function loadRoadmapCollection() {
         id: String(r.id),
         title: titleOf(r.state),
         updatedAt: r.updatedAt || new Date().toISOString(),
-        state: isValidRoadmapState(r.state) ? { ...r.state, title: titleOf(r.state) } : r.state
+        createdAt: r.createdAt || r.updatedAt || null,
+        folderId: r.folderId || null,
+        pinned: !!r.pinned,
+        state: isValidRoadmapState(r.state) ? { ...r.state, title: titleOf(r.state) } : r.state,
+        history: Array.isArray(r.history) ? r.history : []
       }));
     }
   } catch {
@@ -78,15 +90,19 @@ function loadRoadmapCollection() {
 
 function parseRoute(hash) {
   const path = (hash || "").replace(/^#/, "");
-  if (!path) return { view: "empty" };
+  if (!path || path === "/") return { view: "empty" };
 
   const parts = path.split("/").filter(Boolean);
   if (parts[0] !== "roadmaps") return { view: "not-found" };
   if (parts.length === 1) return { view: "roadmaps" };
   if (parts.length === 2 && parts[1] === "new") return { view: "new" };
   if (parts.length === 2) return { view: "builder", id: decodeURIComponent(parts[1]) };
+  if (parts.length === 3 && parts[1] === "new" && parts[2] === "templates") return { view: "new", picker: true };
   if (parts.length === 3 && parts[2] === "import") {
     return { view: "builder", id: decodeURIComponent(parts[1]), action: "import" };
+  }
+  if (parts.length === 3 && ["sources", "impact", "history"].includes(parts[2])) {
+    return { view: "builder", id: decodeURIComponent(parts[1]), tab: parts[2] };
   }
   return { view: "not-found" };
 }
@@ -98,7 +114,14 @@ function go(path) {
 function useHashRoute() {
   const [route, setRoute] = React.useState(() => parseRoute(window.location.hash));
   React.useEffect(() => {
-    const onHashChange = () => setRoute(parseRoute(window.location.hash));
+    let previousHash = window.location.hash;
+    const onHashChange = () => {
+      if (window.sourceNavigationGuard && !window.sourceNavigationGuard()) {
+        history.replaceState(null, '', previousHash); return;
+      }
+      previousHash = window.location.hash;
+      setRoute(parseRoute(window.location.hash));
+    };
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
@@ -115,13 +138,14 @@ function useToast(durationMs = TOAST_DURATION_MS) {
     if (timerRef.current) clearTimeout(timerRef.current);
   }, []);
 
-  const showToast = React.useCallback((msg) => {
+  // opts: { tone: "error", action: { label, onClick }, duration }. Text stays while the toast fades out.
+  const showToast = React.useCallback((msg, opts = {}) => {
     if (timerRef.current) clearTimeout(timerRef.current);
-    setToast({ on: true, msg });
+    setToast({ on: true, msg, ...opts });
     timerRef.current = setTimeout(() => {
-      setToast({ on: false, msg: "" });
+      setToast(t => ({ ...t, on: false }));
       timerRef.current = null;
-    }, durationMs);
+    }, opts.duration || (opts.tone === "error" ? 5000 : durationMs));
   }, [durationMs]);
 
   return [toast, showToast];
@@ -208,7 +232,7 @@ function formatGuidanceNote(entry, verdict) {
   const lines = [];
   if (Array.isArray(entry.advices) && entry.advices.length > 0) {
     const expertNoun = entry.advices.length === 1 ? "expert" : "experts";
-    lines.push(`Impact review (${verdict}) — ${entry.advices.length} ${expertNoun}:`);
+    lines.push(`Impact review (${verdict}), ${entry.advices.length} ${expertNoun}:`);
     entry.advices.forEach(a => {
       const role = a.role || "Advisor";
       const action = a.action ? ` (${a.action})` : "";
@@ -222,100 +246,134 @@ function formatGuidanceNote(entry, verdict) {
   return lines.filter(Boolean).join("\n");
 }
 
-function formatUpdatedAt(value) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown";
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
+// Advice notes cite source IDs; after copying a library under new IDs, point the notes at the copies.
+function remapSourceIds(state, ids) {
+  const pairs = Object.entries(ids || {}).filter(([from, to]) => from !== to);
+  if (!pairs.length) return state;
+  const remap = text => text && pairs.reduce((out, [from, to]) => out.split(from).join(to), text);
+  return { ...state, items: state.items.map(item => item.notes || item.advice
+    ? { ...item, notes: remap(item.notes), advice: remap(item.advice) } : item) };
 }
 
-function RoadmapList({ roadmaps, loadError, onNew, onOpen, onDuplicate, onDelete }) {
+// Saves text as a file through a temporary link.
+function downloadFile(name, content, mime) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+const fileSafe = title => titleOf({ title }).replace(/[^\w\-]+/g, "_");
+
+const APP_TABS = [["roadmap", "Roadmap", "", "grid"], ["sources", "Sources", "/sources", "book"], ["impact", "News Impact", "/impact", "search"], ["history", "History", "/history", "clock"]];
+// Desktop pages scroll inside these panes, not the window.
+const APP_SCROLLERS = ".rmp, .rmp .main, .srcp .layout, .srcp .list, .srcp .detail, .nip .layout, .nip .main, .history-page, .sources-shell";
+
+// Header on every page: where you are (breadcrumbs) and, inside a roadmap, its sections (tabs).
+// Page actions never live here.
+function AppBar({ record, tab, page }) {
+  const base = record ? `#/roadmaps/${encodeURIComponent(record.id)}` : "";
+  const current = record ? record.title : page;
+  const headerRef = React.useRef(null);
+  const tabsRef = React.useRef(null);
+  const lastTab = React.useRef(tab);
+  const [indicator, setIndicator] = React.useState(null);
+  const [animate, setAnimate] = React.useState(false);
+  const [hover, setHover] = React.useState(null);
+  const [condensed, setCondensed] = React.useState(false);
+
+  const measure = key => {
+    const el = tabsRef.current?.querySelector(`[data-k="${key}"]`);
+    return el ? { x: el.offsetLeft, w: el.offsetWidth } : null;
+  };
+
+  React.useLayoutEffect(() => { setIndicator(measure(tab)); }, [tab, !!record]);
+  React.useEffect(() => {
+    const id = requestAnimationFrame(() => setAnimate(true));
+    const remeasure = () => setIndicator(measure(tab));
+    window.addEventListener("resize", remeasure);
+    document.fonts?.ready.then(remeasure);
+    return () => { cancelAnimationFrame(id); window.removeEventListener("resize", remeasure); };
+  }, [tab]);
+
+  // Slide the new page in by tab order. Animating the mounted elements, not re-keying them, keeps News Impact's state.
+  React.useLayoutEffect(() => {
+    const from = APP_TABS.findIndex(t => t[0] === lastTab.current);
+    const to = APP_TABS.findIndex(t => t[0] === tab);
+    lastTab.current = tab;
+    if (from < 0 || to < 0 || from === to) return;
+    setCondensed(false);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const dx = to > from ? 28 : -28;
+    [...headerRef.current.parentElement.children]
+      .filter(el => el !== headerRef.current && getComputedStyle(el).position !== "fixed")
+      .forEach(el => el.animate([{ opacity: 0, transform: `translateX(${dx}px)` }, { opacity: 1, transform: "none" }], { duration: 400, easing: "cubic-bezier(.3,.8,.2,1)" }));
+  }, [tab]);
+
+  // Only pages with tabs condense: without them nothing would be left of the bar.
+  React.useEffect(() => {
+    if (!record) { setCondensed(false); return undefined; }
+    const onScroll = e => {
+      const el = e.target === document ? document.scrollingElement : e.target;
+      if (el !== document.scrollingElement && !el.matches(APP_SCROLLERS)) return;
+      const top = el.scrollTop;
+      setCondensed(was => (top > 24 ? true : top < 4 ? false : was)); // gap between the two stops flicker as the bar resizes the pane
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, [!!record]);
+
+  const onTabKey = e => {
+    const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const [key, , path] = APP_TABS[(APP_TABS.findIndex(t => t[0] === tab) + step + APP_TABS.length) % APP_TABS.length];
+    window.location.hash = `${base}${path}`;
+    tabsRef.current.querySelector(`[data-k="${key}"]`).focus();
+  };
+  const hovered = hover && hover !== tab ? measure(hover) : null;
+
   return (
-    <div className="list-shell">
-      <div className="list-topbar">
-        <div className="brand">
-          <div className="brand-mark">D</div>
-          <div className="brand-name">DDRM Builder<em>beta</em></div>
+    <header className={`appbar${condensed ? " condensed" : ""}${record ? "" : " no-tabs"}`} ref={headerRef}>
+      <a className="skip-link" href="#main" onClick={e => { e.preventDefault(); document.getElementById("main")?.focus(); }}>Skip to content</a>
+      <div className="appbar-row"><div><div className="appbar-row-in">
+        <a className="brand" href="#/" title="Home">
+          <Logo sparks />
+          <div className="brand-name">Data Driven<em>Roadmap</em></div>
+        </a>
+        <div className="appbar-divider" />
+        <nav aria-label="Breadcrumb">
+          <ol className="crumbs">
+            {current
+              ? <><li><a className="crumb-link" href="#/roadmaps">Roadmaps</a></li><li className="here" aria-current="page">{current}</li></>
+              : <li className="here" aria-current="page">Roadmaps</li>}
+          </ol>
+        </nav>
+      </div></div></div>
+      {record && (
+        <div className="appbar-row2">
+          <div className="appbar-mini" aria-hidden={!condensed}><div><div className="appbar-mini-in">
+            <a href="#/roadmaps" title="Back to roadmaps" tabIndex={condensed ? 0 : -1}><Logo size={22} /></a>
+            <div className="appbar-mini-title" title={record.title}>{record.title}</div>
+            <div className="appbar-divider" />
+          </div></div></div>
+          <nav className="appbar-tabs" ref={tabsRef} aria-label="Roadmap sections" onKeyDown={onTabKey} onMouseLeave={() => setHover(null)}>
+            <div className={`appbar-ghost${hovered ? " show" : ""}`} style={hovered ? { transform: `translateX(${hovered.x}px)`, width: hovered.w } : undefined} />
+            {indicator && <div className={`appbar-ind${animate ? " anim" : ""}`} style={{ transform: `translateX(${indicator.x}px)`, width: indicator.w }} />}
+            {APP_TABS.map(([key, label, path, icon]) => (
+              <a key={key} data-k={key} href={`${base}${path}`} className={tab === key ? "on" : ""} aria-label={label} aria-current={tab === key ? "page" : undefined}
+                tabIndex={tab === key ? 0 : -1} onMouseEnter={() => setHover(key)}>
+                <Icon name={icon} size={14} /><span>{label}</span>
+              </a>
+            ))}
+          </nav>
+          <div className="appbar-progress" key={tab}><i /></div>
         </div>
-        <button className="btn btn-accent" onClick={onNew}>
-          <Icon name="plus" size={14} /> New roadmap
-        </button>
-      </div>
-
-      <main className="list-main">
-        <div className="list-header">
-          <div>
-            <div className="eyebrow">Roadmaps</div>
-            <h1>Your roadmaps</h1>
-            <p>Open, duplicate, or delete local roadmaps saved in this browser.</p>
-          </div>
-          <div className="list-count">{roadmaps.length}</div>
-        </div>
-
-        {loadError && (
-          <div className="route-error route-error-inline">
-            <Icon name="info" size={16} />
-            Saved roadmaps could not be loaded.
-          </div>
-        )}
-
-        {roadmaps.length === 0 ? (
-          <div className="empty-list">
-            <Icon name="grid" size={30} />
-            <h2>No roadmaps yet</h2>
-            <p>Create one from a template, blank canvas, or imported JSON.</p>
-            <button className="btn btn-accent" onClick={onNew}>
-              <Icon name="plus" size={14} /> New roadmap
-            </button>
-          </div>
-        ) : (
-          <div className="roadmap-list">
-            {roadmaps.map(record => {
-              const state = record.state || {};
-              const itemCount = Array.isArray(state.items) ? state.items.length : 0;
-              const layerCount = Array.isArray(state.categories) ? state.categories.length : 0;
-              const bandCount = Array.isArray(state.bands) ? state.bands.length : 0;
-              const template = state.templateId || "custom";
-
-              return (
-                <article className="roadmap-row" key={record.id}>
-                  <button className="roadmap-row-main" onClick={() => onOpen(record.id)}>
-                    <div className="roadmap-row-icon"><Icon name="grid" size={18} /></div>
-                    <div>
-                      <h2>{record.title || "Untitled Roadmap"}</h2>
-                      <p>
-                        {itemCount} items · {layerCount} layers · {bandCount} bands · {template}
-                      </p>
-                      <span>Updated {formatUpdatedAt(record.updatedAt)}</span>
-                    </div>
-                  </button>
-                  <div className="roadmap-row-actions">
-                    <button className="btn btn-sm" onClick={() => onOpen(record.id)}>
-                      Open
-                    </button>
-                    <button className="btn btn-sm" onClick={() => onDuplicate(record.id)}>
-                      <Icon name="redo" size={13} /> Duplicate
-                    </button>
-                    <button className="btn btn-sm danger" onClick={() => onDelete(record.id)}>
-                      <Icon name="trash" size={13} /> Delete
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </main>
-
-      <div className="start-footer">
-        <span>DDRM Builder · local roadmaps</span>
-      </div>
-    </div>
+      )}
+    </header>
   );
 }
 
@@ -343,40 +401,69 @@ function App() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "density": "comfortable",
     "showCoachRail": true,
-    "showFirstTimeBanner": true,
     "bandStyle": "gradient"
   }/*EDITMODE-END*/);
 
   const [state, setState] = React.useState(null);
   const [stateRoadmapId, setStateRoadmapId] = React.useState(null);
   const [saveError, setSaveError] = React.useState("");
-  const [showTplPicker, setShowTplPicker] = React.useState(false);
+  const [folders, setFolders] = useRoadmapFolders();
   const [showImport, setShowImport] = React.useState(false);
   const [showGloss, setShowGloss] = React.useState(false);
   const [showStructure, setShowStructure] = React.useState(false);
-  const [showImpactAdvisor, setShowImpactAdvisor] = React.useState(false);
   const [itemModal, setItemModal] = React.useState({ open: false, item: null, prefill: null });
+  const [sourceFocus, setSourceFocus] = React.useState(null); // source to open when History links to Sources
   const [toast, showToast] = useToast();
-  const [coachStep, setCoachStep] = React.useState("name");
+  const [exported, setExported] = React.useState(false); // coach step "Export or share", this session only
   const [selected, setSelected] = React.useState(new Set());
   const [showExport, setShowExport] = React.useState({ open: false, kind: null, payload: "" });
+  const [assess, setAssess] = React.useState({ id: null, ids: [] }); // sources ticked for News Impact, per roadmap
 
   const activeRecord = route.id ? roadmaps.find(r => r.id === route.id) : null;
+  React.useEffect(() => {
+    if (route.view === "empty") { document.title = "Data Driven Roadmap | Keep your technology roadmap alive"; return; }
+    const page = route.view === "roadmaps" ? "Your roadmaps" : route.picker ? "Template library" : route.view === "new" ? "New roadmap"
+      : activeRecord ? `${activeRecord.title} - ${route.tab === "sources" ? "Sources" : route.tab === "impact" ? "News Impact" : route.tab === "history" ? "History" : "Roadmap"}` : "Not found";
+    document.title = `${page} | Data Driven Roadmap`;
+  }, [route.view, route.tab, route.picker, activeRecord?.title]);
   const routeImportOpen = route.view === "builder" && route.action === "import";
 
   // All collection mutations route through here so persistence is never forgotten.
   // Declared before effects that depend on it to avoid TDZ on the dep-array read.
+  const roadmapsRef = React.useRef(roadmaps);
   const updateRoadmaps = React.useCallback((mutate) => {
-    setRoadmaps(mutate);
-  }, []);
+    let next;
+    if (loadError) next = mutate(roadmapsRef.current);
+    else {
+      let storage;
+      try { storage = localStorage; } catch {}
+      const saved = RoadmapStorage.update(storage, ROADMAPS_KEY, roadmapsRef.current, mutate);
+      next = saved.roadmaps;
+      setSaveError(saved.error);
+    }
+    roadmapsRef.current = next;
+    setRoadmaps(next);
+  }, [loadError]);
 
   React.useEffect(() => {
-    if (loadError) {
-      setSaveError("Saved roadmaps could not be read. Automatic saving is disabled to preserve the existing data. Export new work before leaving.");
-      return;
-    }
-    setSaveError(saveRoadmapCollection(roadmaps));
-  }, [roadmaps, loadError]);
+    if (loadError) setSaveError("Saved roadmaps could not be read. Automatic saving is disabled to preserve the existing data. Export new work before leaving.");
+  }, [loadError]);
+
+  // Another tab saved: adopt its collection so this tab never writes stale data back.
+  const externalSyncRef = React.useRef(false);
+  React.useEffect(() => {
+    if (loadError) return;
+    const onStorage = e => {
+      if (e.key !== ROADMAPS_KEY) return;
+      const latest = RoadmapStorage.read(localStorage, ROADMAPS_KEY);
+      if (!latest) return;
+      externalSyncRef.current = true;
+      roadmapsRef.current = latest;
+      setRoadmaps(latest);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [loadError]);
 
   React.useEffect(() => {
     if (!saveError) return;
@@ -386,9 +473,7 @@ function App() {
   }, [saveError]);
 
   React.useEffect(() => {
-    if (route.view === "empty") {
-      go(migratedId ? `/roadmaps/${encodeURIComponent(migratedId)}` : "/roadmaps");
-    }
+    if (route.view === "empty" && migratedId) go(`/roadmaps/${encodeURIComponent(migratedId)}`);
   }, [route.view, migratedId]);
 
   React.useEffect(() => {
@@ -410,6 +495,20 @@ function App() {
     undoStackRef.current = [];
     setCanUndo(false);
   }, [route.view, route.id]);
+
+  // The open roadmap was edited in another tab: show that version (every change here is already saved).
+  const skipPersistRef = React.useRef(false);
+  React.useEffect(() => {
+    const mode = externalSyncRef.current;
+    if (!mode) return;
+    externalSyncRef.current = false;
+    if (!activeRecord || route.id !== stateRoadmapId || !state) return;
+    if (JSON.stringify(activeRecord.state) === JSON.stringify({ ...state, title: titleOf(state) })) return;
+    skipPersistRef.current = true;
+    undoStackRef.current = [];
+    setState(activeRecord.state);
+    if (mode !== "silent") showToast("Updated with changes from another tab");
+  }, [roadmaps]);
 
   // Simple undo: keep last N state snapshots, single-step pop on Ctrl+Z
   const undoStackRef = React.useRef([]);
@@ -436,32 +535,64 @@ function App() {
     showToast("Undo");
   }, []);
 
-  // Persist current builder state into the collection on every change.
+  // Persist current builder state into the collection on every change, logging item changes to its history.
+  // historyBaseRef holds the last persisted state: the "before" of the next history entry.
+  // historyOriginRef tags the next saved change with what caused it; anything untagged is a person's edit.
+  const historyBaseRef = React.useRef(null);
+  const historyOriginRef = React.useRef(null);
   React.useEffect(() => {
+    if (skipPersistRef.current) { skipPersistRef.current = false; historyBaseRef.current = { id: route.id, state }; return; }
     if (!RoadmapStorage.canPersist(route, stateRoadmapId, state)) return;
+    // Opening a roadmap is not an edit: keep its "last edited" time until the state really changes.
+    if (state === roadmapsRef.current.find(r => r.id === route.id)?.state) { historyBaseRef.current = { id: route.id, state }; return; }
+    const base = historyBaseRef.current, origin = historyOriginRef.current || { origin: "user" };
+    historyOriginRef.current = null;
+    const entries = base?.id === route.id
+      ? RoadmapHistory.diff(base.state, state, { ...origin, roadmapId: route.id, actorId: HISTORY_ACTOR.id, actorName: HISTORY_ACTOR.name })
+      : [];
+    historyBaseRef.current = { id: route.id, state };
     updateRoadmaps(prev => prev.map(record => record.id === route.id
-      ? { ...record, title: titleOf(state), updatedAt: new Date().toISOString(), state: { ...state, title: titleOf(state) } }
+      ? { ...record, title: titleOf(state), updatedAt: new Date().toISOString(), state: { ...state, title: titleOf(state) }, history: RoadmapHistory.append(record.history, entries) }
       : record
     ));
   }, [state, stateRoadmapId, route.view, route.id, updateRoadmaps]);
 
-  // figure out current step based on data
-  React.useEffect(() => {
-    if (!state || !isValidRoadmapState(state)) return;
-    if (state.title === "Untitled Roadmap") setCoachStep("name");
-    else if (state.items.length === 0) setCoachStep("first-item");
-    else if (!state.categories.every(c => state.items.some(i => i.catId === c.id))) setCoachStep("all-layers");
-    else if (!state.items.some(i => i.bands.length > 1)) setCoachStep("span");
-    else if (!state.items.some(i => (i.pestle || []).length > 0)) setCoachStep("tag");
-    else setCoachStep("export");
-  }, [state]);
+  // Copy unsynced history to the server's durable store. Retries on the next change or History visit;
+  // the server ignores events it already has, so a repeat after a lost response is harmless.
+  const historySyncRef = React.useRef(false);
+  const syncHistory = React.useCallback(async () => {
+    if (historySyncRef.current) return;
+    const pending = roadmapsRef.current.map(r => ({ id: r.id, events: (r.history || []).filter(e => !e.synced) })).filter(r => r.events.length);
+    if (!pending.length) return;
+    historySyncRef.current = true;
+    try {
+      const done = new Set();
+      for (const r of pending) {
+        for (let i = 0; i < r.events.length; i += 500) {
+          const batch = r.events.slice(i, i + 500);
+          const res = await fetch(`${RoadmapHistory.url(r.id)}/events`, { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ events: batch.map(RoadmapHistory.indexed) }) });
+          if (!res.ok) throw new Error(`History service answered ${res.status}`);
+          batch.forEach(e => done.add(e.event_id || e.id));
+        }
+      }
+      if (done.size) updateRoadmaps(prev => prev.map(r => r.history?.some(e => done.has(e.event_id || e.id)) ? { ...r, history: RoadmapHistory.markSynced(r.history, done) } : r));
+    } catch { /* service offline: the browser copy stays unsynced and is retried later */ }
+    finally { historySyncRef.current = false; }
+  }, [updateRoadmaps]);
+  React.useEffect(() => { syncHistory(); }, [roadmaps, syncHistory]);
 
   // Keyboard shortcuts: Cmd/Ctrl+A select all, Esc clear, Delete remove
   React.useEffect(() => {
-    if (route.view !== "builder" || !state || !isValidRoadmapState(state)) return;
+    if (route.view !== "builder" || route.tab || !state || !isValidRoadmapState(state)) return;
     const handler = (e) => {
       const tag = e.target?.tagName;
       const editing = tag === "INPUT" || tag === "TEXTAREA" || e.target?.isContentEditable;
+      // Never act on the hidden roadmap behind a dialog; also stop the browser's own undo from editing fields behind it.
+      if (document.querySelector('[aria-modal="true"]')) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !editing) e.preventDefault();
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !editing && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -472,19 +603,15 @@ function App() {
         setSelected(new Set());
       } else if ((e.key === "Delete" || e.key === "Backspace") && selected.size > 0 && !editing && !itemModal.open) {
         e.preventDefault();
-        if (confirm(`Delete ${selected.size} selected item${selected.size > 1 ? "s" : ""}?`)) {
-          setState(s => ({ ...s, items: s.items.filter(i => !selected.has(i.id)) }));
-          setSelected(new Set());
-          showToast(`Deleted ${selected.size}`);
-        }
+        onDeleteSelected();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [route.view, state, selected, showExport.open, itemModal.open, undo]);
+  }, [route.view, route.tab, state, selected, showExport.open, itemModal.open, undo]);
 
-  const addRoadmap = (roadmapState) => {
-    const record = makeRecord(roadmapState);
+  const addRoadmap = (roadmapState, extra) => {
+    const record = { ...makeRecord(roadmapState), ...extra };
     updateRoadmaps(prev => [record, ...prev]);
     go(`/roadmaps/${encodeURIComponent(record.id)}`);
     return record;
@@ -494,43 +621,88 @@ function App() {
   const duplicateRoadmap = (id) => {
     const record = roadmaps.find(r => r.id === id);
     if (!record || !isValidRoadmapState(record.state)) {
-      showToast("Roadmap data is invalid.");
+      showToast("Roadmap data is invalid.", { tone: "error" });
       return;
     }
     const copyState = JSON.parse(JSON.stringify(record.state));
     copyState.title = `${titleOf(copyState)} copy`;
-    const copy = makeRecord(copyState);
+    const copy = { ...makeRecord(copyState), folderId: record.folderId || null };
     updateRoadmaps(prev => [copy, ...prev]);
-    showToast("Roadmap duplicated");
+    SourceStore.exportRoadmap(id)
+      .then(library => library.sources.length ? SourceStore.importRoadmap(copy.id, library).then(ids => {
+        updateRoadmaps(prev => prev.map(r => r.id === copy.id ? { ...r, state: remapSourceIds(r.state, ids) } : r));
+        showToast(`Roadmap duplicated with ${library.sources.length} source${library.sources.length === 1 ? "" : "s"}`);
+      }) : showToast("Roadmap duplicated"))
+      .catch(e => showToast(`Roadmap duplicated, but its sources could not be copied (${e.message})`, { tone: "error" }));
   };
-  const deleteRoadmap = (id) => {
-    const record = roadmaps.find(r => r.id === id);
-    if (!record) return;
-    if (!confirm(`Delete "${record.title || "Untitled Roadmap"}"? This cannot be undone.`)) return;
-    updateRoadmaps(prev => prev.filter(r => r.id !== id));
-    if (route.id === id) go("/roadmaps");
-    showToast("Roadmap deleted");
+  // Confirmed by the library page. Sources go first so a storage failure never leaves orphaned sources behind a deleted roadmap.
+  const deleteRoadmaps = async (ids) => {
+    const removed = [];
+    for (const id of ids) {
+      const record = roadmapsRef.current.find(r => r.id === id);
+      if (!record) continue;
+      try { const library = await SourceStore.exportRoadmap(id); await SourceStore.removeRoadmap(id); removed.push({ record, library }); }
+      catch (e) { showToast(`"${record.title}" kept: its sources could not be deleted (${e.message})`, { tone: "error" }); }
+    }
+    if (!removed.length) return;
+    const gone = new Set(removed.map(x => x.record.id));
+    updateRoadmaps(prev => prev.filter(r => !gone.has(r.id)));
+    if (gone.has(route.id)) go("/roadmaps");
+    if (removed.length < ids.length) return; // the error toast above stays visible
+    // shortcut: the undo copy lives in memory only, so it is lost if the page closes before Undo.
+    let undone = false;
+    // The server copy of the change history goes too, once Undo is no longer offered.
+    // shortcut: if the page closes or the service is offline within these 10 s, that history stays on the server.
+    setTimeout(() => { if (!undone) removed.forEach(({ record }) => fetch(RoadmapHistory.url(record.id), { method: "DELETE" }).catch(() => {})); }, 10500);
+    showToast(removed.length === 1 ? `Deleted "${removed[0].record.title}"` : `Deleted ${removed.length} roadmaps`, { duration: 10000, action: { label: "Undo", onClick: async () => {
+      undone = true;
+      try {
+        for (const { record, library } of removed) await SourceStore.importRoadmap(record.id, library, { keepIds: true });
+        updateRoadmaps(prev => [...removed.map(x => x.record).filter(r => !prev.some(p => p.id === r.id)), ...prev]);
+        showToast(removed.length === 1 ? "Roadmap restored" : `${removed.length} roadmaps restored`);
+      } catch (e) { showToast(`Could not restore (${e.message})`, { tone: "error" }); }
+    } } });
+  };
+  const patchRoadmaps = (ids, change) => updateRoadmaps(prev => prev.map(r => ids.includes(r.id) ? { ...r, ...(typeof change === "function" ? change(r) : change) } : r));
+  // Library backup: the roadmap with its sources, in the format Import reads.
+  const exportRoadmapFile = async (id) => {
+    const record = roadmapsRef.current.find(r => r.id === id);
+    if (!record || !isValidRoadmapState(record.state)) { showToast("Roadmap data is invalid.", { tone: "error" }); return; }
+    try {
+      const ddrmSources = await SourceStore.exportRoadmap(id);
+      const withSources = ddrmSources.sources.length > 0;
+      downloadFile(`${fileSafe(record.title)}${withSources ? "_with_sources" : ""}.json`, JSON.stringify(withSources ? { ...record.state, ddrmSources } : record.state, null, 2), "application/json");
+      showToast(withSources ? `Downloaded with ${ddrmSources.sources.length} source${ddrmSources.sources.length === 1 ? "" : "s"}` : "Downloaded");
+    } catch (e) { showToast(`Could not export the sources (${e.message})`, { tone: "error" }); }
   };
 
   const handleStart = (kind) => {
-    if (kind === "templates") setShowTplPicker(true);
+    if (kind === "templates") go("/roadmaps/new/templates");
     else if (kind === "blank") {
       addRoadmap(buildFromTemplate("blank"));
       showToast("Blank roadmap created");
     }
   };
 
-  const handlePickTemplate = (id) => {
-    const record = addRoadmap(buildFromTemplate(id));
-    setShowTplPicker(false);
+  const handlePickTemplate = (id, { title, folderId } = {}) => {
+    const record = addRoadmap({ ...buildFromTemplate(id), ...(title && { title }) }, { folderId: folderId || null });
     const tpl = TEMPLATES.find(t => t.id === id);
     showToast(`Loaded "${tpl.name}" - ${record.state.items.length || 0} items pre-filled`);
   };
 
   const handleImport = (data) => {
-    addRoadmap({ ...data, templateId: data.templateId || "imported" });
+    // No object-rest syntax: in-browser Babel emits a global helper name that collides across scripts.
+    const ddrmSources = data.ddrmSources, roadmapState = { ...data, ddrmSources: undefined };
+    const record = addRoadmap({ ...roadmapState, templateId: roadmapState.templateId || "imported" });
     setShowImport(false);
-    showToast("Roadmap imported");
+    if (!ddrmSources) { showToast("Roadmap imported"); return; }
+    SourceStore.importRoadmap(record.id, ddrmSources)
+      .then(ids => {
+        externalSyncRef.current = "silent"; // the open builder must pick up the remapped notes
+        updateRoadmaps(prev => prev.map(r => r.id === record.id ? { ...r, state: remapSourceIds(r.state, ids) } : r));
+        showToast(`Roadmap imported with ${ddrmSources.sources.length} source${ddrmSources.sources.length === 1 ? "" : "s"}`);
+      })
+      .catch(e => showToast(`Roadmap imported without its sources: ${e.message}`, { tone: "error" }));
   };
 
   const closeRouteImport = () => {
@@ -538,9 +710,8 @@ function App() {
   };
 
   // Builder handlers
-  const updateState = (patch) => setState(s => ({ ...s, ...patch }));
 
-  const onAddItem = (catId, bandId) => setItemModal({ open: true, item: null, prefill: { catId, bandId } });
+  const onAddItem = (catId, bandId) => setItemModal({ open: true, item: null, prefill: catId ? { catId, bandId } : null });
   const onEditItem = (id) => {
     const it = state.items.find(i => i.id === id);
     if (it) setItemModal({ open: true, item: it, prefill: null });
@@ -558,12 +729,13 @@ function App() {
     setItemModal({ open: false, item: null, prefill: null });
     showToast("Item deleted");
   };
-  const onMoveItem = (id, catId, bandId) => {
+  // Moving keeps how many bands the item covers; the page works out which ones.
+  const onMoveItem = (id, catId, bands) => {
     setState(s => ({
       ...s,
-      items: s.items.map(i => i.id === id ? { ...i, catId, bands: [bandId] } : i)
+      items: s.items.map(i => i.id === id ? { ...i, catId, bands } : i)
     }));
-    showToast("Item moved");
+    showToast("Item moved", { action: { label: "Undo", onClick: undo } });
   };
 
   const onToggleSelect = (id) => {
@@ -573,11 +745,11 @@ function App() {
       return next;
     });
   };
-  const onClearSelection = () => setSelected(new Set());
-  const onSelectAll = () => setSelected(new Set(state.items.map(i => i.id)));
-  const onDeleteSelected = () => {
+  const onDeleteSelected = async () => {
     if (!selected.size) return;
-    if (!confirm(`Delete ${selected.size} selected item${selected.size > 1 ? "s" : ""}?`)) return;
+    const label = `${selected.size} item${selected.size > 1 ? "s" : ""}`;
+    if (!await confirmDeletion({ title: `Delete ${label}?`, body: "This removes them from the roadmap. You can undo it with Ctrl+Z.",
+      names: state.items.filter(i => selected.has(i.id)).map(i => i.name), confirmLabel: `Delete ${label}` })) return;
     setState(s => ({ ...s, items: s.items.filter(i => !selected.has(i.id)) }));
     setSelected(new Set());
     showToast(`Deleted ${selected.size} item${selected.size > 1 ? "s" : ""}`);
@@ -591,29 +763,28 @@ function App() {
     setShowExport({ open: true, kind, payload: format.build(state, picked) });
   };
 
+  const saveFile = (content, mime, suffix, ext) => {
+    downloadFile(`${fileSafe(state.title)}${suffix}.${ext}`, content, mime);
+    setExported(true);
+    showToast("Downloaded");
+  };
   const downloadExport = () => {
     const format = EXPORT_FORMATS[showExport.kind];
-    if (!format) return;
-    const blob = new Blob([showExport.payload], { type: format.mime });
-    const url = URL.createObjectURL(blob);
-    const safeTitle = state.title.replace(/[^\w\-]+/g, "_");
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${safeTitle}${showExport.wholeRoadmap ? "" : "_selection"}.${format.ext}`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast("Downloaded");
+    if (format) saveFile(showExport.payload, format.mime, showExport.wholeRoadmap ? "" : "_selection", format.ext);
+  };
+  const downloadWithSources = async () => {
+    try { saveFile(JSON.stringify({ ...state, ddrmSources: await SourceStore.exportRoadmap(route.id) }), "application/json", "_with_sources", "json"); }
+    catch (e) { showToast(`Could not export the sources (${e.message})`, { tone: "error" }); }
   };
   const copyExport = () => {
     navigator.clipboard.writeText(showExport.payload).then(
-      () => showToast("Copied to clipboard"),
-      () => showToast("Couldn't copy - select & Ctrl+C")
+      () => { setExported(true); showToast("Copied to clipboard"); },
+      () => showToast("Couldn't copy - select the text and press Ctrl+C", { tone: "error" })
     );
   };
 
   const onSaveStructure = (cats, bands) => {
+    const removed = state.items.length - state.items.filter(i => cats.some(c => c.id === i.catId) && i.bands.some(b => bands.some(bb => bb.id === b))).length;
     setState(s => ({
       ...s,
       categories: cats,
@@ -624,19 +795,27 @@ function App() {
         .filter(i => i.bands.length > 0)
     }));
     setShowStructure(false);
-    showToast("Structure updated");
+    showToast(removed ? `Structure updated · ${removed} item${removed === 1 ? "" : "s"} deleted` : "Structure updated",
+      removed ? { duration: 8000, action: { label: "Undo", onClick: undo } } : {});
   };
 
   const onJump = (stepId) => {
-    setCoachStep(stepId);
-    if (stepId === "first-item" || stepId === "all-layers" || stepId === "span") {
-      const cat = state.categories.find(c => !state.items.some(i => i.catId === c.id)) || state.categories[0];
-      setItemModal({ open: true, item: null, prefill: { catId: cat.id, bandId: state.bands[0].id } });
-    } else if (stepId === "structure") {
-      setShowStructure(true);
-    } else if (stepId === "export") {
-      doExport();
-    }
+    const firstEmpty = state.categories.find(c => !state.items.some(i => i.catId === c.id)) || state.categories[0];
+    if (stepId === "name") document.getElementById("roadmap-title")?.focus();
+    else if (stepId === "structure") setShowStructure(true);
+    else if (["first-item", "all-layers", "span"].includes(stepId) && firstEmpty && state.bands[0]) setItemModal({ open: true, item: null, prefill: { catId: firstEmpty.id, bandId: state.bands[0].id } });
+    else if (stepId === "tag") { const it = state.items.find(i => !(i.pestle || []).length); if (it) onEditItem(it.id); }
+    else if (stepId === "export") doExport();
+  };
+
+  const printRoadmap = () => { setExported(true); setTimeout(() => window.print(), 50); };
+  const copyRoadmapText = () => {
+    const text = [state.title, "", ...state.categories.map(c => [c.label.toUpperCase(), ...state.items.filter(i => i.catId === c.id).map(i => {
+      const labels = i.bands.map(id => state.bands.find(b => b.id === id)?.label).filter(Boolean);
+      return `  • ${i.name}${labels.length ? ` (${labels.length > 1 ? `${labels[0]} – ${labels[labels.length - 1]}` : labels[0]})` : ""}`;
+    })].join("\n"))].join("\n\n");
+    navigator.clipboard.writeText(text).then(() => { setExported(true); showToast("Roadmap copied as text"); },
+      () => showToast("Couldn't copy. Use Export, then Copy.", { tone: "error" }));
   };
 
   const doExport = () => {
@@ -645,72 +824,71 @@ function App() {
 
   const applyGuidanceNotes = (items, result) => {
     if (!items.length) return;
+    historyOriginRef.current = { origin: "advisor", run: result };
     const byId = Object.fromEntries(items.map(item => [item.item_id, item]));
     const verdict = result?.verdict || "Review";
+    const noteFor = (entry) => SourceLogic.attribution(result, entry) + formatGuidanceNote(entry, verdict);
+    // Same run + source revision + advice is already on the item: adding it again would only duplicate it.
+    const isNew = item => byId[item.id] && !`${item.advice || ""}\n${item.notes || ""}`.includes(noteFor(byId[item.id]));
+    const added = state.items.filter(isNew).length;
+    if (!added) { showToast("This advice is already on the selected items"); return; }
     setState(s => ({
       ...s,
       items: s.items.map(item => {
-        const entry = byId[item.id];
-        if (!entry) return item;
-        const note = formatGuidanceNote(entry, verdict);
-        const existingNotes = item.notes || "";
+        if (!isNew(item)) return item;
+        const note = noteFor(byId[item.id]);
+        // Legacy items keep old advice in their notes: separate it before appending.
+        const text = item.advice == null ? AdvisorUtils.splitLegacyNotes(item.notes) : { notes: item.notes, advice: item.advice };
+        const existing = text.advice || "";
         return {
           ...item,
           reviewNeeded: true,
           lastImpactVerdict: verdict,
-          notes: existingNotes ? `${existingNotes}\n\n${note}` : note
+          notes: text.notes,
+          advice: existing ? `${existing}\n\n${note}` : note
         };
       })
     }));
-    showToast(`Added advice to ${items.length} item${items.length === 1 ? "" : "s"}`);
-    setShowImpactAdvisor(false);
+    showToast(`Added advice to ${added} item${added === 1 ? "" : "s"}${added < items.length ? ` (${items.length - added} already had it)` : ""}`, {
+      duration: 6000, action: { label: "Open roadmap", onClick: () => go(`/roadmaps/${encodeURIComponent(route.id)}`) } });
   };
 
   if (route.view === "empty") {
-    return <Toast on={toast.on} message={toast.msg} />;
-  }
-
-  if (route.view === "roadmaps") {
     return (
       <>
-        {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
-        <RoadmapList
-          roadmaps={roadmaps}
-          loadError={loadError}
-          onNew={() => go("/roadmaps/new")}
-          onOpen={openRoadmap}
-          onDuplicate={duplicateRoadmap}
-          onDelete={deleteRoadmap}
-        />
-        <Toast on={toast.on} message={toast.msg} />
+        <Landing savedCount={roadmaps.length} />
+        <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />
       </>
     );
   }
 
-  if (route.view === "new") {
-    return <>
-      {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
-      <StartScreen onStart={handleStart} onImport={() => setShowImport(true)} onRoadmaps={() => go("/roadmaps")} />
-      <TemplatePicker open={showTplPicker} onClose={() => setShowTplPicker(false)} onPick={handlePickTemplate} />
-      <ImportModal open={showImport} onClose={() => setShowImport(false)} onLoad={handleImport} />
-      <Toast on={toast.on} message={toast.msg} />
-      <TweaksPanel title="Tweaks">
-        <TweakSection title="Onboarding">
-          <TweakToggle label="Show first-time helper banner" value={tweaks.showFirstTimeBanner} onChange={v => setTweak("showFirstTimeBanner", v)} />
-        </TweakSection>
-      </TweaksPanel>
-    </>;
+  if (route.view === "roadmaps" || route.view === "new") {
+    return (
+      <div className="page-shell">
+        {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
+        <AppBar page={route.view === "roadmaps" ? undefined : route.picker ? "Template library" : "New roadmap"} />
+        {route.view === "roadmaps"
+          ? <LibraryPage roadmaps={roadmaps} folders={folders} setFolders={setFolders} loadError={loadError} storageKey={ROADMAPS_KEY}
+              onOpen={openRoadmap} onNew={() => go("/roadmaps/new")} onImport={() => setShowImport(true)} onDuplicate={duplicateRoadmap}
+              onDelete={deleteRoadmaps} onExport={exportRoadmapFile} onPatch={patchRoadmaps} showToast={showToast} />
+          : <StartScreen onStart={handleStart} onImport={() => setShowImport(true)} />}
+        <TemplatePicker open={!!route.picker} onClose={() => go("/roadmaps/new")} onPick={handlePickTemplate} folders={folders} roadmaps={roadmaps} />
+        <ImportModal open={showImport} onClose={() => setShowImport(false)} onLoad={handleImport} />
+        <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />
+      </div>
+    );
   }
 
   if (route.view !== "builder" || !route.id || !activeRecord) {
     return (
       <>
+        <AppBar page="Not found" />
         <RouteError
           title="Roadmap not found"
           body="This route does not match a saved roadmap."
           onAction={() => go("/roadmaps")}
         />
-        <Toast on={toast.on} message={toast.msg} />
+        <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />
       </>
     );
   }
@@ -718,184 +896,39 @@ function App() {
   if (!state || !isValidRoadmapState(state)) {
     return (
       <>
+        <AppBar page="Invalid roadmap" />
         <RouteError
           title="Roadmap data is invalid"
           body="This saved roadmap is missing required layers, bands, or items."
           onAction={() => go("/roadmaps")}
         />
-        <Toast on={toast.on} message={toast.msg} />
+        <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />
       </>
     );
   }
 
-  const tpl = `${tweaks.showCoachRail ? "296px" : "0px"} 1fr`;
+  const tab = route.tab || "roadmap";
+  const base = `/roadmaps/${encodeURIComponent(route.id)}`;
+  const assessIds = assess.id === route.id ? assess.ids : [];
 
   return (
-    <>
-      <div className="app" style={{ gridTemplateColumns: tpl }}>
-        {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
-        <header className="topbar">
-          <button className="brand brand-button" onClick={() => go("/roadmaps")} title="Back to roadmap list">
-            <div className="brand-mark">D</div>
-            <div className="brand-name">DDRM<em>builder</em></div>
-          </button>
-          <div className="crumbs">
-            <button className="crumb-link" onClick={() => go("/roadmaps")}>Roadmaps</button>
-            <span className="sep">/</span>
-            <input
-              className="title-input"
-              value={state.title}
-              onChange={e => updateState({ title: e.target.value })}
-              placeholder="Untitled Roadmap"
-            />
-          </div>
-          <div className="topbar-spacer" />
-
-          {/* Group 1 — view / help (lowest priority) */}
-          <button
-            className={`btn btn-ghost btn-sm ${tweaks.showCoachRail ? "pressed" : ""}`}
-            onClick={() => setTweak("showCoachRail", !tweaks.showCoachRail)}
-            title="Toggle Roadmap Coach (left rail)"
-          >
-            <Icon name="lightbulb" size={14} /> Coach
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowGloss(true)} title="Open glossary">
-            <Icon name="book" size={14} /> Glossary
-          </button>
-
-          <div className="topbar-divider" aria-hidden="true" />
-
-          {/* Group 2 — file ops (infrequent) */}
-          <button className="btn btn-ghost btn-sm" onClick={() => go("/roadmaps/new")} title="Create a new roadmap">
-            <Icon name="plus" size={14} /> New
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={() => go(`/roadmaps/${encodeURIComponent(route.id)}/import`)} title="Import roadmap JSON">
-            <Icon name="import" size={14} /> Import
-          </button>
-          <button className="btn btn-ghost btn-sm" onClick={doExport} title="Export current roadmap as JSON">
-            <Icon name="download" size={14} /> Export
-          </button>
-
-          <div className="topbar-divider" aria-hidden="true" />
-
-          {/* Group 3 — edit (frequent) */}
-          <button className="btn btn-ghost btn-sm" onClick={() => setShowStructure(true)} title="Edit layers & bands">
-            <Icon name="edit" size={14} /> Structure
-          </button>
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={undo}
-            disabled={!canUndo}
-            title={canUndo ? "Undo last change (Ctrl+Z)" : "Nothing to undo"}
-          >
-            <Icon name="undo" size={14} /> Undo
-          </button>
-
-          <div className="topbar-divider" aria-hidden="true" />
-
-          {/* Group 4 — signature feature + primary CTA */}
-          <button
-            className="btn btn-feature btn-sm"
-            onClick={() => setShowImpactAdvisor(true)}
-            title="Assess news impact against this roadmap"
-          >
-            <Icon name="search" size={14} /> News Impact
-          </button>
-          <button
-            className="btn btn-accent btn-sm"
-            onClick={() => setItemModal({ open: true, item: null, prefill: null })}
-            title="Add a new roadmap item"
-          >
-            <Icon name="plus" size={14} /> Add item
-          </button>
-        </header>
-
-        {tweaks.showCoachRail && (
-          <CoachRail
-            state={state}
-            currentStep={coachStep}
-            onJump={onJump}
-            onShowGlossary={() => setShowGloss(true)}
-          />
-        )}
-
-        <main className="canvas">
-          <div className="canvas-inner">
-            <div className="canvas-header">
-              <div className="canvas-title-block">
-                <div className="eyebrow">Roadmap</div>
-                <h1 className="canvas-title">{state.title}</h1>
-                <p className="canvas-sub">
-                  {state.categories.length} layers <span style={{ color: "var(--ink-faint)" }}>·</span> {state.bands.length} time bands <span style={{ color: "var(--ink-faint)" }}>·</span> {state.items.length} items
-                  {state.templateId === "industrial-digital" && (
-                    <> <span style={{ color: "var(--ink-faint)" }}>·</span> based on Digital Industry review</>
-                  )}
-                </p>
-              </div>
-              <div className="canvas-actions">
-                <button className="btn" onClick={() => setShowStructure(true)}>
-                  <Icon name="edit" size={14} /> Edit layers & bands
-                </button>
-              </div>
-            </div>
-
-            {tweaks.showFirstTimeBanner && state.items.length > 0 && state.items.length < 5 && (
-              <div className="first-time-banner">
-                <div className="ftb-icon"><Icon name="sparkles" size={18} /></div>
-                <div className="ftb-body">
-                  <div className="ftb-title">You're building it. Click any chip to edit, or any empty cell to add.</div>
-                  <div className="ftb-sub">
-                    Watch the <b>Roadmap Coach</b> on the left - it shows what to do next. Hover the <span className="info-dot" data-tip="Like this!">?</span> icons whenever a term feels unfamiliar.
-                  </div>
-                </div>
-                <button className="btn btn-ghost btn-icon" onClick={() => setTweak("showFirstTimeBanner", false)} title="Dismiss">
-                  <Icon name="x" size={14} />
-                </button>
-              </div>
-            )}
-
-            {selected.size > 0 && (
-              <div className="sel-bar">
-                <span className="sel-count">{selected.size}</span>
-                <span>item{selected.size > 1 ? "s" : ""} selected</span>
-                <button className="btn btn-quiet btn-sm" onClick={onSelectAll}>
-                  Select all ({state.items.length})
-                </button>
-                <span className="spacer" />
-                <button className="btn btn-sm" onClick={() => onExportSelected("json")}>
-                  <Icon name="download" size={13} /> JSON
-                </button>
-                <button className="btn btn-sm" onClick={() => onExportSelected("csv")}>
-                  <Icon name="download" size={13} /> CSV
-                </button>
-                <button className="btn btn-sm" onClick={() => onExportSelected("text")}>
-                  <Icon name="download" size={13} /> Text
-                </button>
-                <button className="btn btn-sm" onClick={onDeleteSelected} style={{ color: "var(--c-rose)", borderColor: "color-mix(in oklch, var(--c-rose) 30%, white)" }}>
-                  <Icon name="trash" size={13} /> Delete
-                </button>
-                <button className="btn btn-quiet btn-sm" onClick={onClearSelection} title="Clear selection">
-                  <Icon name="x" size={13} />
-                </button>
-              </div>
-            )}
-
-            <RoadmapGrid
-              state={state}
-              currentStep={coachStep}
-              onAddItem={onAddItem}
-              onEditItem={onEditItem}
-              onMoveItem={onMoveItem}
-              selected={selected}
-              onToggleSelect={onToggleSelect}
-            />
-
-            <div style={{ marginTop: 22, padding: "14px 18px", fontSize: 12.5, color: "var(--ink-muted)", textAlign: "center", lineHeight: 1.6 }}>
-              Tip: <b>Click the small checkbox</b> on any chip to select. <span className="kbd">Ctrl+A</span> select all · <span className="kbd">Esc</span> clear · <span className="kbd">Del</span> remove. Drag chips to move them. Toggle the <b>Coach</b> button to hide the left rail.
-            </div>
-          </div>
-        </main>
-      </div>
+    <div className="page-shell">
+      {saveError && <p role="alert" className="storage-warning">{saveError}</p>}
+      <AppBar record={activeRecord} tab={tab} />
+      {tab === "sources" && <SourceWorkspace key={`sources-${route.id}`} roadmapId={route.id} focusId={sourceFocus} onFocused={() => setSourceFocus(null)}
+        onAssess={ids => { setAssess({ id: route.id, ids }); go(`${base}/impact`); }} />}
+      <ImpactAdvisor key={`impact-${route.id}`} open={tab === "impact"} roadmapId={route.id} state={state} onApplyGuidance={applyGuidanceNotes}
+        sourceIds={assessIds} onSourceIds={ids => setAssess({ id: route.id, ids })} onManageSources={() => go(`${base}/sources`)} />
+      {tab === "history" && <HistoryPage roadmapId={route.id} title={state.title} history={activeRecord.history || []} items={state.items}
+        actorId={HISTORY_ACTOR.id} onSync={syncHistory}
+        onOpenItem={id => { const it = state.items.find(i => i.id === id); if (it) { go(base); setItemModal({ open: true, item: it, prefill: null }); } }}
+        onOpenSource={id => { setSourceFocus(id); go(`${base}/sources`); }} />}
+      {tab === "roadmap" && <>
+      <RoadmapPage state={state} setState={setState} selected={selected} setSelected={setSelected}
+        showCoach={tweaks.showCoachRail} setShowCoach={v => setTweak("showCoachRail", v)} exported={exported} onJump={onJump}
+        onShowGlossary={() => setShowGloss(true)} onImport={() => go(`${base}/import`)} onExport={doExport} onPrint={printRoadmap} onCopyText={copyRoadmapText}
+        onStructure={() => setShowStructure(true)} undo={undo} canUndo={canUndo} onAddItem={onAddItem} onEditItem={onEditItem} onMoveItem={onMoveItem}
+        onDeleteSelected={onDeleteSelected} onExportSelected={onExportSelected} showToast={showToast} />
 
       <ItemModal
         open={itemModal.open}
@@ -917,16 +950,16 @@ function App() {
       <ImportModal open={routeImportOpen} onClose={closeRouteImport} onLoad={handleImport} />
 
       {showExport.open && (
-        <div className="backdrop on" onClick={() => setShowExport({ open: false, kind: null, payload: "" })}>
-          <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+        <Dialog onClose={() => setShowExport({ open: false, kind: null, payload: "" })} label="Export" className="modal-lg">
             <div className="modal-head">
               <div>
                 <div className="modal-title">{showExport.wholeRoadmap ? "Export roadmap" : `Export ${selected.size} selected item${selected.size > 1 ? "s" : ""}`}</div>
                 <div className="modal-sub">
                   Format: <b style={{ textTransform: "uppercase" }}>{showExport.kind}</b>. Preview below - copy to clipboard or download as a file.
+                  {showExport.wholeRoadmap && <> To back up or move the Sources library too, use <b>Download with sources</b> and import that file on the other browser.</>}
                 </div>
               </div>
-              <button className="modal-close" onClick={() => setShowExport({ open: false, kind: null, payload: "" })}>
+              <button className="modal-close" aria-label="Close" onClick={() => setShowExport({ open: false, kind: null, payload: "" })}>
                 <Icon name="x" size={14} />
               </button>
             </div>
@@ -936,7 +969,7 @@ function App() {
                 border: "1px solid var(--line)",
                 borderRadius: "var(--r-md)",
                 padding: 14,
-                fontFamily: "'JetBrains Mono', monospace",
+                fontFamily: "'DM Mono', monospace",
                 fontSize: 12,
                 lineHeight: 1.6,
                 color: "var(--ink-2)",
@@ -949,27 +982,19 @@ function App() {
             <div className="modal-foot">
               <button className="btn" onClick={() => setShowExport({ open: false, kind: null, payload: "" })}>Close</button>
               <button className="btn" onClick={copyExport}><Icon name="share" size={13} /> Copy</button>
+              {showExport.wholeRoadmap && <button className="btn" onClick={downloadWithSources}>
+                <Icon name="download" size={13} /> Download with sources
+              </button>}
               <button className="btn btn-accent" onClick={downloadExport}>
                 <Icon name="download" size={13} /> Download .{showExport.kind === "json" ? "json" : showExport.kind === "csv" ? "csv" : "txt"}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
-
-      <Toast on={toast.on} message={toast.msg} />
-
-      <ImpactAdvisor
-        open={showImpactAdvisor}
-        onClose={() => setShowImpactAdvisor(false)}
-        state={state}
-        onApplyGuidance={applyGuidanceNotes}
-      />
 
       <TweaksPanel title="Tweaks">
         <TweakSection title="Onboarding">
           <TweakToggle label="Show Roadmap Coach (left rail)" value={tweaks.showCoachRail} onChange={v => setTweak("showCoachRail", v)} />
-          <TweakToggle label="Show first-time banner above grid" value={tweaks.showFirstTimeBanner} onChange={v => setTweak("showFirstTimeBanner", v)} />
         </TweakSection>
         <TweakSection title="Density">
           <TweakRadio
@@ -983,7 +1008,10 @@ function App() {
           />
         </TweakSection>
       </TweaksPanel>
-    </>
+      </>}
+      {/* Outside the tab fragment so Sources and News Impact show toasts too. */}
+      <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />
+    </div>
   );
 }
 

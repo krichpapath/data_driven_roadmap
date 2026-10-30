@@ -1,246 +1,161 @@
-/* global React, Icon, TEMPLATES */
-// ─── Start Screen ────────────────────────────────────────────
+/* global React, Icon, Dialog, Select, TEMPLATES, buildFromTemplate, RoadmapLibrary, LibThumb, LibraryFooter */
+// ─── New roadmap ─────────────────────────────────────────────
 // Three entry points: pick template, blank, import JSON.
 // Hero side teaches the DDRM concept with a visual mini-grid.
 
-function StartScreen({ onStart, onImport, onRoadmaps }) {
-  const [hover, setHover] = React.useState(null);
-
+function StartScreen({ onStart, onImport }) {
   return (
-    <div className="start-shell">
-      <div className="start-topbar">
-        <div className="brand">
-          <div className="brand-mark">D</div>
-          <div className="brand-name">DDRM Builder<em>beta</em></div>
-        </div>
-        <div className="row" style={{ gap: 6, fontSize: 12.5, color: "var(--ink-muted)" }}>
-          <button className="btn btn-ghost btn-sm" onClick={onRoadmaps}>
-            <Icon name="grid" size={13} /> Your roadmaps
-          </button>
-          <a className="btn btn-ghost btn-sm" href="#docs">Docs</a>
-          <a className="btn btn-ghost btn-sm" href="#examples">Examples</a>
-        </div>
-      </div>
-
-      <div className="start-main">
-        <div className="start-card">
-          {/* HERO — teaches the concept */}
-          <div className="start-hero">
-            <div>
-              <span className="start-eyebrow">Data-Driven Roadmaps · for everyone</span>
-              <h1 className="start-title">
-                Start a roadmap<br/>
-                without the <em>jargon</em>.
-              </h1>
-              <p className="start-lede">
-                A DDRM is a single picture of <b>what's coming</b>, <b>what we'll build</b>, and <b>when</b> — organised in layers across time. Pick a starting point on the right and we'll explain each step as you go.
-              </p>
-
-              <div className="start-bullets">
-                <div className="start-bullet">
-                  <div className="start-bullet-dot">1</div>
-                  <div><b>Layers</b> are rows. They go from <i>why</i> (drivers) at the top to <i>how</i> (resources) at the bottom.</div>
-                </div>
-                <div className="start-bullet">
-                  <div className="start-bullet-dot">2</div>
-                  <div><b>Time bands</b> are columns. Now &middot; Next &middot; Later — or pick years.</div>
-                </div>
-                <div className="start-bullet">
-                  <div className="start-bullet-dot">3</div>
-                  <div><b>Items</b> live in cells. An item can span multiple bands if it stretches across time.</div>
-                </div>
+    <div className="lib-page">
+      <main className="ncp" id="main" tabIndex={-1}>
+        <div className="ncp-in">
+          <div className="ncp-card">
+            <div className="ncp-hero">
+              <span className="ey">Data-driven roadmaps · for everyone</span>
+              <h1>Start a roadmap<br />without the <em>jargon</em>.</h1>
+              <p>A DDRM is a single picture of <b>what's coming</b>, <b>what we'll build</b>, and <b>when</b>, organised in layers across time. Pick a starting point on the right and we'll explain each step as you go.</p>
+              <div className="ncp-concepts">
+                <div className="concept"><div className="ci"><Icon name="layers" size={14} /></div><b>Layers</b><span>Rows, from <i>why</i> (drivers) at the top to <i>how</i> (resources) at the bottom.</span></div>
+                <div className="concept"><div className="ci"><Icon name="cols" size={14} /></div><b>Time bands</b><span>Columns. Now · Next · Later, or pick years.</span></div>
+                <div className="concept"><div className="ci"><Icon name="item" size={14} /></div><b>Items</b><span>Live in cells and can span several bands.</span></div>
+              </div>
+              <div className="ncp-mini" aria-hidden="true">
+                <div /><div className="h">Now</div><div className="h">Next</div><div className="h">Later</div>
+                <div className="l" style={{ borderLeftColor: "var(--c-blue)" }}>Drivers</div>
+                <div className="c"><div className="chip" style={{ borderColor: "var(--c-blue)", color: "var(--c-blue)" }}>GenAI growth</div></div>
+                <div className="c"><div className="chip" style={{ borderColor: "var(--c-blue)", color: "var(--c-blue)" }}>Geopolitics</div></div><div className="c" />
+                <div className="l" style={{ borderLeftColor: "var(--c-violet)" }}>Products</div><div className="c" />
+                <div className="c" style={{ gridColumn: "3 / span 2" }}><div className="chip" style={{ borderColor: "var(--c-violet)", color: "var(--c-violet)", textAlign: "center" }}>↔ ASEAN platform</div></div>
+                <div className="l" style={{ borderLeftColor: "var(--c-amber)" }}>R&amp;D</div>
+                <div className="c" style={{ gridColumn: "2 / span 3" }}><div className="chip" style={{ borderColor: "var(--c-amber)", color: "var(--c-amber)", textAlign: "center" }}>↔ Digital Twins programme</div></div>
               </div>
             </div>
 
-            {/* Mini visual */}
-            <div className="start-diagram" aria-hidden="true">
-              <div className="sd-cell sd-head"></div>
-              <div className="sd-cell sd-head" style={{textAlign:"center"}}>Now</div>
-              <div className="sd-cell sd-head" style={{textAlign:"center"}}>Next</div>
-              <div className="sd-cell sd-head" style={{textAlign:"center"}}>Later</div>
-
-              <div className="sd-cell sd-row-label" style={{borderLeft: "3px solid var(--c-blue)", paddingLeft: 6}}>Drivers</div>
-              <div className="sd-cell"><div className="sd-chip" style={{borderColor:"var(--c-blue)", color:"var(--c-blue)"}}>GenAI growth</div></div>
-              <div className="sd-cell"><div className="sd-chip" style={{borderColor:"var(--c-blue)", color:"var(--c-blue)"}}>Geopolitics</div></div>
-              <div className="sd-cell"></div>
-
-              <div className="sd-cell sd-row-label" style={{borderLeft: "3px solid var(--c-violet)", paddingLeft: 6}}>Products</div>
-              <div className="sd-cell"></div>
-              <div className="sd-cell" style={{gridColumn: "3 / span 2"}}>
-                <div className="sd-chip" style={{borderColor:"var(--c-violet)", color:"var(--c-violet)", textAlign:"center"}}>↔ ASEAN platform</div>
-              </div>
-
-              <div className="sd-cell sd-row-label" style={{borderLeft: "3px solid var(--c-amber)", paddingLeft: 6}}>R&amp;D</div>
-              <div className="sd-cell" style={{gridColumn: "2 / span 3"}}>
-                <div className="sd-chip" style={{borderColor:"var(--c-amber)", color:"var(--c-amber)", textAlign:"center"}}>↔ Digital Twins programme</div>
-              </div>
-            </div>
-          </div>
-
-          {/* OPTIONS */}
-          <div className="start-options">
-            <div className="start-options-title">Start a roadmap</div>
-
-            <button
-              className="start-option featured"
-              onMouseEnter={() => setHover("template")}
-              onMouseLeave={() => setHover(null)}
-              onClick={() => onStart("templates")}
-            >
-              <div className="start-option-icon"><Icon name="grid" size={20} /></div>
-              <div>
-                <div className="start-option-title">Pick a template</div>
-                <div className="start-option-sub">Industrial Digital, SaaS Product, Research Programme — pre-filled and editable.</div>
-              </div>
-              <Icon name="arrow-right" size={18} className="start-option-arrow" />
-            </button>
-
-            <button
-              className="start-option"
-              onClick={() => onStart("blank")}
-            >
-              <div className="start-option-icon"><Icon name="blank" size={20} /></div>
-              <div>
-                <div className="start-option-title">Blank canvas</div>
-                <div className="start-option-sub">3 layers × 3 time bands. Rename and add as you go.</div>
-              </div>
-              <Icon name="arrow-right" size={18} className="start-option-arrow" />
-            </button>
-
-            <button
-              className="start-option"
-              onClick={onImport}
-            >
-              <div className="start-option-icon"><Icon name="import" size={20} /></div>
-              <div>
-                <div className="start-option-title">Import existing JSON</div>
-                <div className="start-option-sub">Bring in a roadmap you've exported before.</div>
-              </div>
-              <Icon name="arrow-right" size={18} className="start-option-arrow" />
-            </button>
-
-            <div style={{ marginTop: 12, padding: "12px 14px", border: "1px dashed var(--line-strong)", borderRadius: "var(--r-md)", fontSize: 12.5, color: "var(--ink-muted)", lineHeight: 1.55 }}>
-              <b style={{ color: "var(--ink-2)" }}>New to DDRM?</b> The <b>Industrial Digital</b> template is pre-loaded with the structure from a real digital-industry review document — open it, look around, then adapt it to your own context.
+            <div className="ncp-opts">
+              <h2 className="eyebrow">Start a roadmap</h2>
+              <button type="button" className="opt featured" onClick={() => onStart("templates")}>
+                <div className="oi"><Icon name="grid" size={19} /></div>
+                <div><b>Pick a template</b><p>Industrial Digital, SaaS Product, Research Programme. Pre-filled and editable.</p></div>
+                <Icon name="arrow-right" size={17} />
+              </button>
+              <button type="button" className="opt" onClick={() => onStart("blank")}>
+                <div className="oi"><Icon name="blank" size={19} /></div>
+                <div><b>Blank canvas</b><p>3 layers × 3 time bands. Rename and add as you go.</p></div>
+                <Icon name="arrow-right" size={17} />
+              </button>
+              <button type="button" className="opt" onClick={onImport}>
+                <div className="oi"><Icon name="import" size={19} /></div>
+                <div><b>Import existing JSON</b><p>Bring in a roadmap you've exported before, with or without its sources.</p></div>
+                <Icon name="arrow-right" size={17} />
+              </button>
+              <div className="tip"><Icon name="info" size={15} /><span><b>New to DDRM?</b> The <b>Industrial Digital</b> template is pre-loaded with the structure from a real digital-industry review document. Open it, look around, then adapt it to your own context.</span></div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="start-footer">
-        <span>DDRM Builder · designed for non-developers</span>
-        <span className="row" style={{ gap: 8 }}>
-          <span><span className="kbd">⌘</span> <span className="kbd">K</span> · keyboard help</span>
-        </span>
-      </div>
+      </main>
+      <LibraryFooter />
     </div>
   );
 }
 
-// ─── Template Picker Modal ────────────────────────────────────
-function TemplateThumb({ tpl }) {
-  const cells = [];
-  for (let r = 0; r < 3; r++) {
-    cells.push(<div key={`l${r}`} className="tpl-thumb-cell label" style={{ borderLeft: `3px solid ${tpl.categories[r % tpl.categories.length]?.color || "var(--line)"}` }} />);
-    for (let c = 0; c < 3; c++) {
-      const filled = (r + c) % 2 === 0 || tpl.id === "industrial-digital";
-      const cat = tpl.categories[r % tpl.categories.length];
-      cells.push(
-        <div key={`c${r}${c}`} className="tpl-thumb-cell">
-          {filled && (
-            <div style={{
-              height: 6, marginTop: 4, marginLeft: 3, marginRight: 3,
-              background: cat?.color || "var(--c-slate)",
-              opacity: 0.7,
-              borderRadius: 2
-            }} />
-          )}
-          {filled && (r + c) % 3 === 0 && (
-            <div style={{
-              height: 6, marginTop: 3, marginLeft: 3, marginRight: 3,
-              background: cat?.color || "var(--c-slate)",
-              opacity: 0.4,
-              borderRadius: 2
-            }} />
-          )}
-        </div>
-      );
-    }
-  }
-  return <div className="tpl-thumb">{cells}</div>;
+// ─── Template library ─────────────────────────────────────────
+// Counts up to `to` once; shows the final number straight away when motion is reduced.
+function CountUp({ to }) {
+  const [v, setV] = React.useState(0);
+  React.useEffect(() => {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setV(to); return; }
+    let raf, start;
+    const step = ts => { start ??= ts; const p = Math.min(1, (ts - start) / 600); setV(Math.round(to * (1 - Math.pow(1 - p, 3)))); if (p < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [to]);
+  return v;
 }
 
-function TemplatePicker({ open, onClose, onPick }) {
+const TPL_GROUPS = ["All", ...new Set(TEMPLATES.map(t => t.group))];
+const tplThumb = t => RoadmapLibrary.thumb({ categories: t.categories, bands: t.bands_data, items: t.items });
+
+function TemplatePicker({ open, onClose, onPick, folders = [], roadmaps = [] }) {
   const [selected, setSelected] = React.useState("industrial-digital");
+  const [group, setGroup] = React.useState("All");
+  const [q, setQ] = React.useState("");
+  const [name, setName] = React.useState("");
+  const [folderId, setFolderId] = React.useState("");
+  React.useEffect(() => { setName(buildFromTemplate(selected).title); }, [selected]);
   if (!open) return null;
+
   const tpl = TEMPLATES.find(t => t.id === selected);
+  const query = q.trim().toLowerCase();
+  const shown = TEMPLATES.filter(t => (group === "All" || t.group === group) && `${t.name} ${t.tagline}`.toLowerCase().includes(query));
+  const used = id => roadmaps.filter(r => r.state?.templateId === id).length;
+  const perLayer = tpl.categories.map(c => tpl.items.filter(i => i.catId === c.id).length), most = Math.max(1, ...perLayer);
+  const pick = id => onPick(id, { title: (id === selected ? name.trim() : "") || buildFromTemplate(id).title, folderId: folderId || null });
+  const n = used(tpl.id);
 
   return (
-    <div className={`backdrop on`} onClick={onClose}>
-      <div className="modal modal-xl" onClick={e => e.stopPropagation()}>
-        <div className="modal-head">
-          <div>
-            <div className="modal-title">Start a roadmap from a template</div>
-            <div className="modal-sub">Templates ship with sensible layers and time bands. Everything is editable once you open it.</div>
-          </div>
-          <button className="modal-close" onClick={onClose}><Icon name="x" size={14} /></button>
-        </div>
-
-        <div className="modal-body">
-          <div className="tpl-grid">
-            {TEMPLATES.map(t => (
-              <button
-                key={t.id}
-                className={`tpl-card ${selected === t.id ? "selected" : ""}`}
-                onClick={() => setSelected(t.id)}
-              >
-                <TemplateThumb tpl={t} />
-                <div>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <span className="tpl-name">{t.name}</span>
-                    {t.id === "industrial-digital" && <span className="tpl-tag" style={{ background: "var(--accent-soft)", color: "var(--accent-ink)" }}>Recommended</span>}
-                  </div>
-                  <div className="tpl-meta" style={{ marginTop: 4 }}>{t.tagline}</div>
-                  <div className="row" style={{ gap: 6, marginTop: 8 }}>
-                    <span className="tpl-tag">{t.layers} layers</span>
-                    <span className="tpl-tag">{t.bands} bands</span>
-                    {t.items.length > 0 && <span className="tpl-tag">{t.items.length} items pre-filled</span>}
-                  </div>
-                </div>
+    <Dialog onClose={onClose} label="Start a roadmap from a template" className="lib-tpl">
+      <div className="mhead">
+        <div><h2>Start a roadmap from a template</h2><p>Templates ship with sensible layers and time bands. Everything is editable once you open it.</p></div>
+        <div className="lib-search"><Icon name="search" size={13} /><input className="field-input" type="search" placeholder="Search templates" aria-label="Search templates" value={q} onChange={e => setQ(e.target.value)} /></div>
+        <button type="button" className="btn btn-icon" aria-label="Close" onClick={onClose}><Icon name="x" size={14} /></button>
+      </div>
+      <div className="mbody">
+        <aside className="mrail" aria-label="Template categories">
+          <div className="eyebrow">Categories</div>
+          {TPL_GROUPS.map(g => (
+            <button key={g} type="button" className={`lib-folder ${group === g ? "on" : ""}`} aria-pressed={group === g} onClick={() => setGroup(g)}>
+              <Icon name="folder" size={14} /><span className="nm">{g === "All" ? "All templates" : g}</span>
+              <span className="n">{g === "All" ? TEMPLATES.length : TEMPLATES.filter(t => t.group === g).length}</span>
+            </button>
+          ))}
+        </aside>
+        <div className="tgrid" key={group}>
+          {shown.length === 0 && <p className="lib-none">No templates match "{q}".</p>}
+          {shown.map((t, i) => {
+            const u = used(t.id);
+            return (
+              <button key={t.id} type="button" style={{ "--i": i }} className={`tcard ${selected === t.id ? "on" : ""}`} aria-pressed={selected === t.id}
+                onClick={() => setSelected(t.id)} onDoubleClick={() => pick(t.id)}>
+                {selected === t.id && <span className="check"><Icon name="check" size={12} strokeWidth={2.6} /></span>}
+                <LibThumb rows={tplThumb(t)} size="sm" />
+                <div><b>{t.name}{t.id === "industrial-digital" && <span className="tag accent">Recommended</span>}</b><p>{t.tagline}</p></div>
+                <div className="tags"><span className="tag">{t.layers} layers</span><span className="tag">{t.bands} bands</span>{t.items.length > 0 && <span className="tag green">{t.items.length} items</span>}</div>
+                <div className="tmeta"><span><Icon name="folder" size={11} />{t.group}</span><span><Icon name="clock" size={11} />{u ? `Used ${u}×` : "Not used yet"}</span></div>
               </button>
+            );
+          })}
+        </div>
+        <aside className="preview" key={tpl.id} aria-label={`${tpl.name} preview`}>
+          <LibThumb rows={tplThumb(tpl)} size="lg" />
+          <div><h3>{tpl.name}</h3><p className="desc">{tpl.tagline}</p></div>
+          <div className="kv">
+            <div><b><CountUp to={tpl.categories.length} /></b><span>Layers</span></div>
+            <div><b><CountUp to={tpl.bands_data.length} /></b><span>Time bands</span></div>
+            <div><b><CountUp to={tpl.items.length} /></b><span>Items</span></div>
+          </div>
+          <div className="plist">
+            <div className="eyebrow">Layers</div>
+            {tpl.categories.map((c, i) => (
+              <div key={c.id} className="layer" style={{ "--i": i }}>
+                <i style={{ background: c.color }} />{c.label}
+                {tpl.items.length > 0 && <span className="q"><span className="qbar"><span style={{ width: `${perLayer[i] / most * 100}%`, background: c.color, "--i": i }} /></span>{perLayer[i]} items</span>}
+              </div>
             ))}
           </div>
-
-          {/* Preview detail */}
-          <div style={{
-            marginTop: 6,
-            padding: 14,
-            background: "var(--surface-2)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--r-md)",
-            fontSize: 12.5,
-            color: "var(--ink-2)",
-            lineHeight: 1.55
-          }}>
-            <div className="row" style={{ marginBottom: 8 }}>
-              <Icon name="info" size={14} />
-              <b>What you'll get with "{tpl.name}"</b>
-            </div>
-            <div>
-              <b>Layers:</b> {tpl.categories.map(c => c.label).join(" · ")}<br/>
-              <b>Time bands:</b> {tpl.bands_data.map(b => b.label).join(" · ")}<br/>
-              {tpl.items.length > 0 && <><b>{tpl.items.length} pre-filled items</b> drawn from a real digital-industry review you can edit, delete or build on.</>}
-            </div>
-          </div>
-        </div>
-
-        <div className="modal-foot">
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-accent" onClick={() => onPick(selected)}>
-            Use this template <Icon name="arrow-right" size={14} />
-          </button>
-        </div>
+          <div className="plist"><div className="eyebrow">Time bands</div><div className="bands">{tpl.bands_data.map(b => <span key={b.id} className="band">{b.label}</span>)}</div></div>
+          <div className="plist meta">{n ? `Used in ${n} of your roadmaps` : "Not used in your roadmaps yet"}</div>
+        </aside>
       </div>
-    </div>
+      <div className="mfoot">
+        <div className="nm">
+          <label htmlFor="tpl-name">Name</label>
+          <input id="tpl-name" className="field-input" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") pick(selected); }} />
+          <Select className="tpl-folder" value={folderId} onChange={setFolderId} aria-label="Folder"
+            options={[["", "Unfiled"], ...folders.map(f => [f.id, `Folder: ${f.name}`])]} />
+        </div>
+        <button type="button" className="btn" onClick={onClose}>Cancel</button>
+        <button type="button" className="btn btn-accent" onClick={() => pick(selected)}>Use this template <Icon name="arrow-right" size={13} /></button>
+      </div>
+    </Dialog>
   );
 }
 

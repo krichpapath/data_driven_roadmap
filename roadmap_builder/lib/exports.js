@@ -19,6 +19,8 @@
 //   diff <(grep -A20 'function csvEscape' app.jsx) \
 //        <(grep -A20 'export function csvEscape' lib/exports.js)
 
+import "./advisor.js"; // sets globalThis.AdvisorUtils, as in the browser
+
 // ─── Roadmap state shape helpers ────────────────────────────────────────────
 
 export function titleOf(state) {
@@ -38,15 +40,19 @@ export function isValidRoadmapState(state) {
 
 export function parseRoute(hash) {
   const path = (hash || "").replace(/^#/, "");
-  if (!path) return { view: "empty" };
+  if (!path || path === "/") return { view: "empty" };
 
   const parts = path.split("/").filter(Boolean);
   if (parts[0] !== "roadmaps") return { view: "not-found" };
   if (parts.length === 1) return { view: "roadmaps" };
   if (parts.length === 2 && parts[1] === "new") return { view: "new" };
   if (parts.length === 2) return { view: "builder", id: decodeURIComponent(parts[1]) };
+  if (parts.length === 3 && parts[1] === "new" && parts[2] === "templates") return { view: "new", picker: true };
   if (parts.length === 3 && parts[2] === "import") {
     return { view: "builder", id: decodeURIComponent(parts[1]), action: "import" };
+  }
+  if (parts.length === 3 && ["sources", "impact", "history"].includes(parts[2])) {
+    return { view: "builder", id: decodeURIComponent(parts[1]), tab: parts[2] };
   }
   return { view: "not-found" };
 }
@@ -165,7 +171,7 @@ export function saveStructure(state, cats, bands) {
 }
 
 /**
- * Merge advisor advice into matched items' notes + flag reviewNeeded.
+ * Append advisor advice to matched items' `advice` (user notes untouched) + flag reviewNeeded.
  * Mirrors `applyGuidanceNotes`. `entries` is the list of expert-result entries
  * for items the user picked; `verdict` is the global DDRM verdict string.
  */
@@ -178,12 +184,16 @@ export function applyAdvisorAdvice(state, entries, verdict) {
       const entry = byId[item.id];
       if (!entry) return item;
       const note = formatGuidanceNote(entry, verdict);
-      const existing = item.notes || "";
+      // Legacy items keep old advice in their notes: separate it before appending.
+      const text = item.advice == null ? globalThis.AdvisorUtils.splitLegacyNotes(item.notes) : { notes: item.notes, advice: item.advice };
+      const existing = text.advice || "";
+      if (existing.includes(note)) return item; // re-applying the same advice must not duplicate it
       return {
         ...item,
         reviewNeeded: true,
         lastImpactVerdict: verdict,
-        notes: existing ? `${existing}\n\n${note}` : note,
+        notes: text.notes,
+        advice: existing ? `${existing}\n\n${note}` : note,
       };
     }),
   };
@@ -246,6 +256,13 @@ export function validateRoadmap(roadmap) {
     if (!item.bands.every(bid => bandIds.has(bid))) {
       throw new Error(`Item ${idx + 1} must reference existing time bands.`);
     }
+    const order = item.bands.map(b => roadmap.bands.map(b => b.id).indexOf(b)).sort((a, b) => a - b);
+    if (order.some((pos, i) => i && pos !== order[i - 1] + 1)) {
+      throw new Error(`Item ${idx + 1} must use neighbouring time bands (a card is one continuous span).`);
+    }
+    if (item.pestle != null && (!Array.isArray(item.pestle) || item.pestle.some(p => !["P", "E", "S", "T", "L", "En"].includes(p)))) {
+      throw new Error(`Item ${idx + 1} has an unknown PESTLE tag. Use P, E, S, T, L or En.`);
+    }
   });
   return true;
 }
@@ -256,7 +273,7 @@ export function formatGuidanceNote(entry, verdict) {
   const lines = [];
   if (Array.isArray(entry.advices) && entry.advices.length > 0) {
     const expertNoun = entry.advices.length === 1 ? "expert" : "experts";
-    lines.push(`Impact review (${verdict}) — ${entry.advices.length} ${expertNoun}:`);
+    lines.push(`Impact review (${verdict}), ${entry.advices.length} ${expertNoun}:`);
     entry.advices.forEach(a => {
       const role = a.role || "Advisor";
       const action = a.action ? ` (${a.action})` : "";

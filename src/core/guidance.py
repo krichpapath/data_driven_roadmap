@@ -10,6 +10,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import re
 from typing import Dict, List, Optional
 
 import requests
@@ -488,7 +489,7 @@ def _build_expert_prompt(role: str, role_keypoints: List[Dict], role_matches: Li
 
     return f"""You are the {role} expert in a strategic roadmap risk-review workshop.
 Your scope: {role_focus}.
-Stay strictly within your domain — do not opine on other PESTLE dimensions.
+Stay strictly within your domain. Do not opine on other PESTLE dimensions.
 The DDRM verdict ({verdict}, severity {severity:.2f}) is fixed; do not recompute.
 
 Evidence in your domain (keypoints classified as {role}):
@@ -498,8 +499,9 @@ Roadmap items in your lane (tagged with {role}):
 {item_lines}
 
 For each item above, give one focused {role}-specific recommendation.
-The DDRM verdict ({verdict}) is the fixed action — do not pick your own action label.
-- advice: 1–2 sentences, concrete, actionable, tied to the {role} evidence. Justify why the fixed verdict applies through this {role} lens.
+The DDRM verdict ({verdict}) is the fixed action. Do not pick your own action label.
+Write short plain sentences. Never use em dashes.
+- advice: 1–2 sentences, concrete, actionable, tied to the {role} evidence. Explain why the {verdict} verdict applies through this {role} lens. Write for roadmap owners: do not mention that the verdict is fixed, given or calculated.
 - evidence_keypoint_id: ID of the single keypoint above (e.g. "K3") that most justifies this advice. Must match an ID listed above exactly.
 - expert_summary: 1 sentence overall {role}-lens take on the news
 Return JSON only.
@@ -540,9 +542,14 @@ def _validate_expert_response(raw: Dict, role: str) -> Dict:
     if not isinstance(advices, list):
         raise ValueError(f"{role} expert response missing 'item_advices' list.")
     return {
-        "expert_summary": str(raw.get("expert_summary") or ""),
+        "expert_summary": _plain_text(raw.get("expert_summary")),
         "item_advices": advices,
     }
+
+
+def _plain_text(value) -> str:
+    """Model text shown in the UI: the interface style uses no em dashes, so turn any into a comma."""
+    return re.sub(r"\s*—\s*", ", ", str(value or ""))
 
 
 def _call_expert(role: str, role_keypoints: List[Dict], role_matches: List[Dict],
@@ -623,7 +630,7 @@ def _merge_expert_results(per_expert: Dict[str, Dict], matches: List[Dict], verd
             by_id[item_id]["advices"].append({
                 "role": role,
                 "action": verdict,
-                "advice": entry.get("advice", ""),
+                "advice": _plain_text(entry.get("advice")),
                 "evidence_keypoint": kp,
             })
 

@@ -160,24 +160,41 @@ describe("applyAdvisorAdvice", () => {
     const i1 = next.items.find(i => i.id === "i1");
     expect(i1.reviewNeeded).toBe(true);
     expect(i1.lastImpactVerdict).toBe("Adjust");
-    expect(i1.notes).toContain("Impact review (Adjust)");
-    expect(i1.notes).toContain("[Technological (Adjust)] Add monitoring");
+    expect(i1.advice).toContain("Impact review (Adjust)");
+    expect(i1.advice).toContain("[Technological (Adjust)] Add monitoring");
+    expect(i1.notes).toBe("");
+  });
+
+  it("does not duplicate advice that is already on the item", () => {
+    const once = applyAdvisorAdvice(baseState(), advisorEntries(), "Adjust");
+    const twice = applyAdvisorAdvice(once, advisorEntries(), "Adjust");
+    expect(twice.items.find(i => i.id === "i1").advice).toBe(once.items.find(i => i.id === "i1").advice);
   });
 
   it("does not touch unmatched items", () => {
     const next = applyAdvisorAdvice(baseState(), advisorEntries(), "Adjust");
     const i2 = next.items.find(i => i.id === "i2");
     expect(i2.reviewNeeded).toBeUndefined();
-    expect(i2.notes).toBeUndefined();
+    expect(i2.advice).toBeUndefined();
   });
 
-  it("appends to existing notes with a blank-line separator", () => {
+  it("appends to existing advice with a blank-line separator and leaves user notes alone", () => {
     const seeded = baseState();
-    seeded.items[0].notes = "Old note";
+    seeded.items[0].notes = "My note";
+    seeded.items[0].advice = "Old advice";
     const next = applyAdvisorAdvice(seeded, advisorEntries(), "Revise");
     const i1 = next.items.find(i => i.id === "i1");
-    expect(i1.notes.startsWith("Old note\n\n")).toBe(true);
-    expect(i1.notes).toContain("Impact review (Revise)");
+    expect(i1.notes).toBe("My note");
+    expect(i1.advice.startsWith("Old advice\n\n")).toBe(true);
+    expect(i1.advice).toContain("Impact review (Revise)");
+  });
+
+  it("moves legacy advice out of the notes before appending", () => {
+    const seeded = baseState();
+    seeded.items[0].notes = "Mine\n\nImpact review (Adjust): Old";
+    const i1 = applyAdvisorAdvice(seeded, advisorEntries(), "Revise").items.find(i => i.id === "i1");
+    expect(i1.notes).toBe("Mine");
+    expect(i1.advice.startsWith("Impact review (Adjust): Old\n\nImpact review (Revise)")).toBe(true);
   });
 
   it("returns the input unchanged when entries list is empty", () => {
@@ -211,6 +228,14 @@ describe("toggleInSet", () => {
 describe("validateRoadmap", () => {
   it("accepts a well-formed roadmap", () => {
     expect(validateRoadmap(baseState())).toBe(true);
+  });
+
+  it("rejects items spanning non-neighbouring bands or with unknown PESTLE tags", () => {
+    const s = baseState();
+    const gap = { ...s, bands: [...s.bands, { id: "bx", label: "X" }, { id: "by", label: "Y" }] };
+    gap.items = [{ ...s.items[0], bands: [s.bands[0].id, "by"] }];
+    expect(() => validateRoadmap(gap)).toThrow(/neighbouring/);
+    expect(() => validateRoadmap({ ...s, items: [{ ...s.items[0], pestle: ["Q"] }] })).toThrow(/PESTLE/);
   });
 
   it("rejects null / array / non-object inputs", () => {

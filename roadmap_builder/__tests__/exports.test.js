@@ -50,12 +50,14 @@ describe("parseRoute", () => {
   it("empty hash → empty view", () => {
     expect(parseRoute("")).toEqual({ view: "empty" });
     expect(parseRoute("#")).toEqual({ view: "empty" });
+    expect(parseRoute("#/")).toEqual({ view: "empty" });
   });
   it("/roadmaps → list view", () => {
     expect(parseRoute("#/roadmaps")).toEqual({ view: "roadmaps" });
   });
   it("/roadmaps/new → new view", () => {
     expect(parseRoute("#/roadmaps/new")).toEqual({ view: "new" });
+    expect(parseRoute("#/roadmaps/new/templates")).toEqual({ view: "new", picker: true });
   });
   it("/roadmaps/:id → builder view with id", () => {
     expect(parseRoute("#/roadmaps/abc123")).toEqual({
@@ -67,8 +69,13 @@ describe("parseRoute", () => {
       view: "builder", id: "abc", action: "import",
     });
   });
+  it("/roadmaps/:id/sources and /impact → builder tabs", () => {
+    expect(parseRoute("#/roadmaps/abc/sources")).toEqual({ view: "builder", id: "abc", tab: "sources" });
+    expect(parseRoute("#/roadmaps/abc/impact")).toEqual({ view: "builder", id: "abc", tab: "impact" });
+  });
   it("unknown path → not-found", () => {
     expect(parseRoute("#/foo")).toEqual({ view: "not-found" });
+    expect(parseRoute("#/sources")).toEqual({ view: "not-found" });
     expect(parseRoute("#/roadmaps/abc/whatever")).toEqual({ view: "not-found" });
   });
 });
@@ -169,7 +176,7 @@ describe("formatGuidanceNote", () => {
       ],
     };
     const note = formatGuidanceNote(entry, "Adjust");
-    expect(note).toContain("Impact review (Adjust) — 2 experts:");
+    expect(note).toContain("Impact review (Adjust), 2 experts:");
     expect(note).toContain("[Political (Adjust)] watch policy");
     expect(note).toContain("[Economic (Adjust)] track markets");
     expect(note).toContain("Evidence: K2 line");
