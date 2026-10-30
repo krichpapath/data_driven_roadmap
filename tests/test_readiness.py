@@ -122,6 +122,28 @@ def test_redirect_is_revalidated_and_connection_is_pinned(monkeypatch):
     assert calls == [("public.example", "93.184.216.34")]
 
 
+@pytest.mark.parametrize("port,secure", [(443, True), (80, False)])
+def test_host_header_omits_default_port(port, secure):
+    # Some sites (Pantip, Yonhap) reject "Host: name:443" with HTTP 400.
+    connection = url_fetch._PinnedConnection("pantip.com", port, "93.184.216.34", secure, 5)
+    connection.putrequest("GET", "/")  # buffers headers only; nothing connects
+    assert b"Host: pantip.com" in connection._buffer
+
+
+@pytest.mark.parametrize("body,content_type", [
+    (b"\xef\xbb\xbf<p>\xe0\xb8\x81\xe0\xb8\xa3 \x8a</p>", ""),                       # BOM, no header
+    (b"<p>\xe0\xb8\x81\xe0\xb8\xa3 \x8a</p>", 'text/html; charset="UTF-8"'),            # header only
+], ids=["bom", "header"])
+def test_declared_utf8_survives_one_bad_byte(body, content_type):
+    # One invalid byte (as on Pantip) must not switch the whole page to Mac Roman.
+    assert url_fetch._decode(body, content_type) == "<p>กร �</p>"
+
+
+def test_undeclared_charset_is_still_detected():
+    assert url_fetch._decode("<p>สวัสดี</p>".encode("utf-8"), "text/html") == "<p>สวัสดี</p>"
+    assert url_fetch._decode("<p>สวัสดี</p>".encode("utf-8"), "text/html; charset=bogus") == "<p>สวัสดี</p>"
+
+
 @pytest.mark.parametrize("headers,body,expected", [
     ({"Content-Length": "2097153"}, b"", "2 MB"),
     ({}, b"x" * (2097153), "2 MB"),
@@ -167,7 +189,7 @@ def test_mixed_dns_and_late_eof_rejected(monkeypatch):
         return b""
     response = SimpleNamespace(status=200, getheader=lambda k, d=None: d, read1=late_eof, close=lambda: None)
     monkeypatch.setattr(url_fetch, "_PinnedConnection", lambda *a: SimpleNamespace(sock=None, request=lambda *a, **kw: None, getresponse=lambda: response, close=lambda: None))
-    with pytest.raises(ValueError, match="timed out"):
+    with pytest.raises(ValueError, match="too long to answer"):
         url_fetch.fetch_html("https://example.com/")
 
 
@@ -238,3 +260,28 @@ def test_simultaneous_assessments_are_serialized(monkeypatch):
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: assess(), range(2)))
     assert results == [{"verdict": "Maintain"}] * 2
+
+
+@pytest.mark.parametrize("encoding", ["gzip", "deflate"])
+def test_compressed_pages_are_inflated(monkeypatch, encoding):
+    import gzip, zlib
+    from io import BytesIO
+    html = "<p>ข่าว news</p>".encode("utf-8")
+    body = gzip.compress(html) if encoding == "gzip" else zlib.compress(html)
+    headers = {"Content-Encoding": encoding, "Content-Type": "text/html; charset=utf-8"}
+    stream = BytesIO(body)
+    response = SimpleNamespace(status=200, getheader=lambda k, d=None: headers.get(k, d), read1=stream.read1, close=stream.close)
+    monkeypatch.setattr(url_fetch, "_resolve", lambda *a: "93.184.216.34")
+    monkeypatch.setattr(url_fetch, "_PinnedConnection", lambda *a: SimpleNamespace(sock=None, request=lambda *a, **kw: None, getresponse=lambda: response, close=lambda: None))
+    assert url_fetch.fetch_html("https://example.com/")[1] == "<p>ข่าว news</p>"
+
+
+def test_gzip_bomb_is_capped():
+    import gzip
+    with pytest.raises(ValueError, match="2 MB"):
+        url_fetch._inflate(gzip.compress(b"0" * (url_fetch.MAX_BYTES + 10)), "gzip")
+
+
+def test_ipv4_is_preferred(monkeypatch):
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **kw: [(None, None, None, None, ("2606:2800:220:1::", 443)), (None, None, None, None, ("93.184.216.34", 443))])
+    assert url_fetch._resolve("example.com", 443, 1) == "93.184.216.34"

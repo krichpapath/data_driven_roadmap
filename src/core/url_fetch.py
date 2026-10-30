@@ -2,6 +2,7 @@
 
 No environment proxies, automatic redirects, cookies, or parser network requests.
 """
+import codecs
 import http.client
 import ipaddress
 import queue
@@ -9,6 +10,8 @@ import socket
 import ssl
 import threading
 import time
+import zlib
+from email.message import Message
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 MAX_BYTES = 2 * 1024 * 1024
@@ -35,13 +38,16 @@ def _resolve(host, port, timeout):
     addresses = [ipaddress.ip_address(row[4][0]) for row in answers]
     if any(not ip.is_global or (getattr(ip, "ipv4_mapped", None) and not ip.ipv4_mapped.is_global) for ip in addresses):
         raise ValueError("URL must resolve only to public internet addresses; private and local networks are blocked.")
-    return str(addresses[0])
+    # IPv4 first: a machine with a broken IPv6 route otherwise fails every dual-stack site (example.com).
+    return str(sorted(addresses, key=lambda ip: ip.version)[0])
 
 
 class _PinnedConnection(http.client.HTTPConnection):
     def __init__(self, host, port, address, secure, timeout):
         super().__init__(host, port, timeout=timeout)
         self.address, self.secure = address, secure
+        # HTTPConnection assumes port 80, so HTTPS sent "Host: x:443"; Pantip and Yonhap answer that with 400.
+        self.default_port = 443 if secure else 80
 
     def connect(self):
         self.sock = socket.create_connection((self.address, self.port), self.timeout)
@@ -50,6 +56,41 @@ class _PinnedConnection(http.client.HTTPConnection):
             # Validate the certificate and SNI against the original hostname.
             self.sock = ssl.create_default_context().wrap_socket(self.sock, server_hostname=self.host)
             self.active_socket = self.sock
+
+
+def _decode(body, content_type):
+    """BOM, then the HTTP charset, as browsers do; guess only when neither is declared.
+
+    UnicodeDammit decodes strictly, so one bad byte (Pantip share links) made it
+    pick Mac Roman and garble the whole page. A declared charset replaces only bad bytes.
+    shortcut: only the UTF-8 BOM is recognised; add UTF-16 BOMs if such pages appear.
+    """
+    if body.startswith(codecs.BOM_UTF8):
+        return body[len(codecs.BOM_UTF8):].decode("utf-8", errors="replace")
+    header = Message()
+    header["Content-Type"] = content_type
+    charset = header.get_content_charset()
+    if charset:
+        try:
+            return body.decode(charset, errors="replace")
+        except LookupError:
+            pass  # Unknown charset name: fall back to detection.
+    from bs4 import UnicodeDammit
+    return UnicodeDammit(body, is_html=True).unicode_markup or ""
+
+
+def _inflate(body, encoding):
+    """Undo gzip/deflate with the same 2 MB cap as the download (a small bomb must not expand unbounded)."""
+    if encoding == "identity":
+        return body
+    inflater = zlib.decompressobj(zlib.MAX_WBITS | 32 if encoding == "gzip" else zlib.MAX_WBITS)
+    try:
+        out = inflater.decompress(body, MAX_BYTES + 1)
+    except zlib.error:
+        out = zlib.decompressobj(-zlib.MAX_WBITS).decompress(body, MAX_BYTES + 1)  # raw deflate, as some servers send
+    if len(out) > MAX_BYTES:
+        raise ValueError("Article exceeds the 2 MB download limit.")
+    return out
 
 
 def _abort(connection):
@@ -68,7 +109,7 @@ def fetch_html(url):
         try:
             parts = urlsplit(url)
             if parts.scheme not in {"http", "https"} or not parts.hostname or parts.username is not None or parts.password is not None:
-                raise ValueError("Use an http or https article URL without credentials.")
+                raise ValueError("Enter a full web address starting with http:// or https:// (no user name or password).")
             if any(ord(c) < 32 or c.isspace() for c in url) or "\\" in url:
                 raise ValueError("URL contains invalid characters.")
             port = parts.port or (443 if parts.scheme == "https" else 80)
@@ -86,7 +127,7 @@ def fetch_html(url):
             response = None
             try:
                 target = urlunsplit(("", "", parts.path or "/", parts.query, ""))
-                connection.request("GET", target, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "identity"})
+                connection.request("GET", target, headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip, deflate"})
                 response = connection.getresponse()
                 if response.status in {301, 302, 303, 307, 308}:
                     location = response.getheader("Location")
@@ -99,8 +140,9 @@ def fetch_html(url):
                 mime = response.getheader("Content-Type", "").split(";")[0].strip().lower()
                 if mime not in {"text/html", "application/xhtml+xml", "text/plain", ""}:
                     raise ValueError("URL does not contain a supported text article.")
-                if response.getheader("Content-Encoding", "identity").lower() != "identity":
-                    raise ValueError("Server ignored the uncompressed-content request. Paste the article text instead.")
+                encoding = response.getheader("Content-Encoding", "identity").lower()
+                if encoding not in {"identity", "gzip", "deflate"}:
+                    raise ValueError(f"The site sent {encoding}-compressed content, which is not supported. Paste the article text instead.")
                 length = response.getheader("Content-Length")
                 if length and int(length) > MAX_BYTES:
                     raise ValueError("Article exceeds the 2 MB download limit.")
@@ -121,13 +163,18 @@ def fetch_html(url):
                     raise TimeoutError()
                 if length and len(body) != int(length):
                     raise ValueError("Article download was incomplete. Retry or paste the text.")
-                from bs4 import UnicodeDammit
-                return url, UnicodeDammit(bytes(body), is_html=True).unicode_markup or ""
+                return url, _decode(_inflate(bytes(body), encoding), response.getheader("Content-Type", ""))
             finally:
                 timer.cancel()
                 if response:
                     response.close()
                 connection.close()
-        except (OSError, http.client.HTTPException, UnicodeError) as exc:
-            raise ValueError("Article download failed or timed out. Check the URL or paste the text instead.") from exc
+        except ssl.SSLError as exc:
+            raise ValueError("The site's security certificate could not be verified. Paste the article text instead.") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise ValueError("The site took too long to answer. Retry later or paste the article text.") from exc
+        except (ConnectionError, OSError) as exc:
+            raise ValueError("Could not connect to the site. Check the URL or paste the article text.") from exc
+        except (http.client.HTTPException, UnicodeError, zlib.error) as exc:
+            raise ValueError("The site sent a response that could not be read. Paste the article text instead.") from exc
     raise ValueError("Too many redirects.")
