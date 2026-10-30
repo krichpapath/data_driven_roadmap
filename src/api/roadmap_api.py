@@ -97,7 +97,17 @@ def public_config() -> Dict[str, Any]:
             "external_ai_default": False}
 
 
+def _warm_models() -> None:
+    from ui.app import warm_models
+    try:
+        warm_models()
+    except Exception:  # an assessment still reports the actionable "model unavailable" error
+        logging.getLogger(__name__).exception("Model warm-up failed")
+
+
 if __name__ == "__main__":
+    import threading
     import uvicorn
 
+    threading.Thread(target=_warm_models, daemon=True).start()  # serve /api/health while models load
     uvicorn.run(app, host=HOST, port=PORT)

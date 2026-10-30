@@ -2,7 +2,7 @@
 
 from typing import Dict
 
-from core.router import get_model_config
+from core.router import get_model_config, model_load_args
 from config import MODEL_REVISIONS
 
 # model_id -> transformers pipeline (loaded once per model on first use)
@@ -26,7 +26,7 @@ def _get_pipeline(model_id: str, max_length: int):
             _pipeline_cache[model_id] = pipeline(
                 "text-classification", model=model_id,
                 revision=MODEL_REVISIONS[model_id], trust_remote_code=False,
-                max_length=max_length, truncation=True, device=-1,
+                max_length=max_length, truncation=True, **model_load_args(),
             )
         except Exception as exc:
             raise RuntimeError(f"Sentiment model unavailable: {model_id}. Download the pinned revision and restart the API.") from exc

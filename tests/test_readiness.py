@@ -183,6 +183,41 @@ def test_unavailable_classifiers_are_actionable(monkeypatch):
         sentiment._get_pipeline("ProsusAI/finbert", 512)
 
 
+def test_every_model_loads_in_float32(monkeypatch):
+    # The PESTLE checkpoint is float16; loaded as saved, CPU assessments took minutes.
+    import torch
+    from core import keypoints
+    calls = []
+    monkeypatch.setitem(sys.modules, "transformers", SimpleNamespace(pipeline=lambda *a, **kw: calls.append(kw) or object()))
+    monkeypatch.setitem(sys.modules, "sentence_transformers", SimpleNamespace(
+        SentenceTransformer=lambda *a, **kw: calls.append(kw["model_kwargs"]) or object()))
+    monkeypatch.setattr(pestle, "_classifier", None)
+    monkeypatch.setattr(sentiment, "_pipeline_cache", {})
+    monkeypatch.setattr(keypoints, "_model_cache", {})
+    pestle._get_classifier()
+    sentiment._get_pipeline("ProsusAI/finbert", 512)
+    keypoints._get_embedder()
+    assert [c["dtype"] for c in calls] == [torch.float32] * 3
+
+
+def test_warm_up_loads_every_model_under_the_lock(monkeypatch):
+    from core import keypoints
+    from ui import app
+    loaded = []
+    def load(name):
+        def fn(*args):
+            assert app._PIPELINE_LOCK.locked(), "Warm-up raced an assessment"
+            loaded.append(args[0] if args else name)
+        return fn
+    monkeypatch.setattr(keypoints, "_get_embedder", load("embedder"))
+    monkeypatch.setattr(pestle, "_get_classifier", load("pestle"))
+    monkeypatch.setattr(sentiment, "_get_pipeline", load("sentiment"))
+    app.warm_models()
+    assert loaded[:2] == ["embedder", "pestle"]
+    assert set(loaded[2:]) == {"siebert/sentiment-roberta-large-english", "ProsusAI/finbert",
+                               "climatebert/distilroberta-base-climate-sentiment"}
+
+
 def test_simultaneous_assessments_are_serialized(monkeypatch):
     import concurrent.futures
     import threading

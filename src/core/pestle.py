@@ -36,9 +36,11 @@ def _get_classifier():
     if _classifier is None:
         try:
             from transformers import pipeline
+            from core.router import model_load_args
             _classifier = pipeline(
                 "zero-shot-classification", model=PESTLE_MODEL,
-                revision=MODEL_REVISIONS[PESTLE_MODEL], trust_remote_code=False, device=-1,
+                revision=MODEL_REVISIONS[PESTLE_MODEL], trust_remote_code=False,
+                **model_load_args(),
             )
         except Exception as exc:
             raise RuntimeError(f"PESTLE model unavailable: {PESTLE_MODEL}. Download the pinned revision and restart the API.") from exc
@@ -62,6 +64,7 @@ def classify_pestle(sentence: str) -> Dict:
         PESTLE_LABEL_VERBALIZED,
         hypothesis_template=PESTLE_HYPOTHESIS_TEMPLATE,
         multi_label=False,
+        batch_size=len(PESTLE_LABEL_VERBALIZED),  # one forward pass for all six hypotheses
     )
 
     # out["labels"] / out["scores"] sorted highest→lowest, but contain

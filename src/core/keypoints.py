@@ -117,7 +117,11 @@ def _split_sentences(text: str) -> List[str]:
 def _get_embedder():
     if "model" not in _model_cache:
         from sentence_transformers import SentenceTransformer
-        _model_cache["model"] = SentenceTransformer(KEYPOINTS_EMBED_MODEL, revision=MODEL_REVISIONS[KEYPOINTS_EMBED_MODEL], trust_remote_code=False)
+        from core.router import model_load_args
+        _model_cache["model"] = SentenceTransformer(
+            KEYPOINTS_EMBED_MODEL, revision=MODEL_REVISIONS[KEYPOINTS_EMBED_MODEL], trust_remote_code=False,
+            model_kwargs={"dtype": model_load_args()["dtype"]},
+        )
     return _model_cache["model"]
 
 

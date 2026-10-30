@@ -3,7 +3,7 @@ and assert the verdict matches the filename prefix (maintain_/adjust_/revise_).
 
 Usage: python tools/e2e_check.py [max_points]   (backend must be running on :7875)
 """
-import json, pathlib, sys, urllib.request
+import json, pathlib, sys, time, urllib.request
 
 API = "http://127.0.0.1:7875/api/recommend"
 MAX_POINTS = int(sys.argv[1]) if len(sys.argv) > 1 else 7   # config.KEYPOINTS_MAX
@@ -25,6 +25,7 @@ for path in paths:
         "allow_external_ai": False,
     }).encode()
     req = urllib.request.Request(API, payload, {"Content-Type": "application/json"})
+    started = time.perf_counter()
     try:
         with urllib.request.urlopen(req, timeout=600) as r:
             res = json.load(r)["result"]
@@ -37,7 +38,7 @@ for path in paths:
     results[path.name] = res
     if ok == "FAIL":
         fails.append(f"{path.name}: expected {expected}, got {got}")
-    print(f"{ok}  {path.name:45s} expected={expected:9s} got={got!s:9s} severity={sev:.4f}")
+    print(f"{ok}  {path.name:45s} expected={expected:9s} got={got!s:9s} severity={sev:.4f} {time.perf_counter() - started:.1f}s")
 
 print(f"\n{len(fails)} mismatch(es)" if fails else "\nall scenarios matched")
 output = DATA.parent / "tmp/api-scenarios.json"

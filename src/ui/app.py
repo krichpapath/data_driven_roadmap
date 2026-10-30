@@ -187,6 +187,19 @@ def run_pipeline(input_text: str, input_mode: str, input_file, max_points: int, 
                              use_expert_workshop, llm_model, allow_external_ai)
 
 
+def warm_models() -> None:
+    """Load every model once at API start, so the first assessment does not wait about a minute."""
+    from config import PESTLE_MODELS
+    from core.keypoints import _get_embedder
+    from core.pestle import _get_classifier
+    from core.sentiment import _get_pipeline
+    with _PIPELINE_LOCK:  # same dtype race as run_pipeline: never load beside an assessment
+        _get_embedder()
+        _get_classifier()
+        for cfg in PESTLE_MODELS.values():
+            _get_pipeline(cfg["model_id"], cfg.get("max_length", 512))
+
+
 def _run_pipeline(input_text, input_mode, input_file, max_points, roadmap_json, use_expert_workshop, llm_model, allow_external_ai):
     model = resolve_guidance_model(llm_model)
     roadmap = _parse_roadmap_json(roadmap_json)
