@@ -11,9 +11,9 @@ A workflow handbook for the next developer (likely an intern). Read
 git clone <repo>
 cd roadmapping
 
-python -m venv .venv-readiness
-.\.venv-readiness\Scripts\Activate.ps1          # Windows PowerShell
-# source .venv-readiness/bin/activate           # macOS / Linux
+python -m venv .venv-cpu
+.\.venv-cpu\Scripts\Activate.ps1          # Windows PowerShell
+# source .venv-cpu/bin/activate           # macOS / Linux
 
 pip install -r requirements.lock
 pip install -r requirements-dev.lock

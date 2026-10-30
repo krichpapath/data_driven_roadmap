@@ -1,7 +1,7 @@
 # 2. Run the app
 
 The application is **two programs running at the same time**. You need two
-terminal windows. Both must use the updated `.venv-readiness` environment from the installation guide.
+terminal windows. Both must use the same environment from the installation guide: `.venv-cpu`, or `.venv-gpu` on a computer with an NVIDIA graphics card.
 
 ---
 

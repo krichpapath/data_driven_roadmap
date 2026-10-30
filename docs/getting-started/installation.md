@@ -65,24 +65,24 @@ your computer. Always work inside it.
 === "Windows PowerShell"
 
     ```bash
-    python -m venv .venv-readiness
+    python -m venv .venv-cpu
     ```
 
     ```bash
-    .\.venv-readiness\Scripts\Activate.ps1
+    .\.venv-cpu\Scripts\Activate.ps1
     ```
 
 === "macOS / Linux"
 
     ```bash
-    python3 -m venv .venv-readiness
+    python3 -m venv .venv-cpu
     ```
 
     ```bash
-    source .venv-readiness/bin/activate
+    source .venv-cpu/bin/activate
     ```
 
-You will know it worked because your prompt now starts with `(.venv-readiness)`.
+You will know it worked because your prompt now starts with `(.venv-cpu)`.
 
 !!! warning "You must activate it in every new terminal"
     Opening a new terminal drops you out of the virtual environment. If a
@@ -97,6 +97,16 @@ python -m pip install -r requirements.lock
 ```
 
 This is the big download — roughly 2 GB, mostly PyTorch. Be patient.
+
+!!! tip "Computer with an NVIDIA graphics card?"
+    Use `.venv-gpu` instead of `.venv-cpu` in Step 2, and install the CUDA
+    build of PyTorch **before** the lock file. Assessments then take under
+    1 second instead of 20–30 seconds, with identical results.
+
+    ```bash
+    python -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu130
+    python -m pip install -r requirements.lock
+    ```
 
 The runtime lock includes pytest and the API test client. For the optional
 Gradio developer UIs and documentation tools:

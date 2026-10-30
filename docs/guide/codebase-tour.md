@@ -27,7 +27,7 @@ Roadmapping/
 └── archive/               completed academic work and older snapshots
 ```
 
-Generated `site/`, installed `venv/` and `node_modules/`, and caches are local
+Generated `site/`, installed `.venv-cpu/`, `.venv-gpu/` and `node_modules/`, and caches are local
 outputs. Academic files previously mixed into `docs/` have been archived,
 so new handbook builds contain only the active documentation.
 
@@ -64,7 +64,8 @@ the delivered API/browser application.
 | `impact-advisor.jsx` | News input, API requests, assessment results, and advice |
 | `roadmap-grid.jsx` | Roadmap grid and drag/drop |
 | `modals.jsx` | Item editing, imports, and structure editing |
-| `start-screen.jsx` | Roadmap list and template selection |
+| `library.jsx` | Your roadmaps: folders, pinning, selection, moving |
+| `start-screen.jsx` | New roadmap screen and template library |
 | `data.jsx` | Templates, glossary, and PESTLE definitions |
 | `coach-rail.jsx` | Onboarding checklist |
 | `primitives.jsx` | Shared visual helpers |

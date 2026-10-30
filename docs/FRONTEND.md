@@ -27,16 +27,29 @@ section in `CONTRIBUTING.md` for the migration path to Vite + TypeScript.
 attached by an earlier one (via `Object.assign(window, {...})`).
 
 ```
-1. tweaks-panel.jsx     → useTweaks, TweaksPanel
-2. data.jsx             → PESTLE, PALETTE, TEMPLATES, GLOSSARY, buildFromTemplate
-3. primitives.jsx       → Icon, Toast, GlossaryCard, InfoDot
-4. start-screen.jsx     → StartScreen, TemplatePicker
-5. coach-rail.jsx       → CoachRail
-6. roadmap-grid.jsx     → RoadmapGrid (uses Chip internally)
-7. modals.jsx           → ItemModal, GlossaryModal, ImportModal, StructureModal
-8. impact-advisor.jsx   → ImpactAdvisor
-9. app.jsx              → App (mounted into #root)
+lib/*.js (plain scripts) → AdvisorUtils, RoadmapHistory, RoadmapStorage, RoadmapLibrary,
+                           SourceLogic, SourceStore, SourceProcessing (+ tesseract.js)
+1. sources.jsx          → SourcesPage
+2. tweaks-panel.jsx     → useTweaks, TweaksPanel
+3. data.jsx             → PESTLE, PALETTE, TEMPLATES, GLOSSARY, buildFromTemplate
+4. primitives.jsx       → Icon, Logo, Toast, Dialog, LibConfirm, confirmDeletion, Select, Check
+5. start-screen.jsx     → StartScreen, TemplatePicker
+6. coach-rail.jsx       → CoachRail
+7. roadmap-grid.jsx     → RoadmapGrid (uses Chip internally)
+8. modals.jsx           → ItemModal, GlossaryModal, ImportModal, StructureModal
+9. impact-advisor.jsx   → ImpactAdvisor
+10. history.jsx         → HistoryPage
+11. landing.jsx         → Landing (styles in landing.css, scoped under .lp)
+12. library.jsx         → LibraryPage, useRoadmapFolders (helpers in lib/library.js)
+13. app.jsx             → App (mounted into #root)
 ```
+
+Every `<script>` and stylesheet has a `?v=N` query. Bump it whenever you edit
+that file, or browsers keep serving the old copy.
+
+**Destructive confirmations** use `confirmDeletion({ title, body, names, confirmLabel })`
+from `primitives.jsx` (the centred dialog with the bin icon). Never turn the
+clicked button itself into a confirm button: a double-click would confirm it.
 
 Adding a new file: drop it into the order above where its dependencies
 already exist, then add a `<script>` tag in `index.html`.
@@ -47,7 +60,7 @@ already exist, then add a `<script>` tag in `index.html`.
 
 ```
 <App>                           (app.jsx)
-├── <RoadmapList>               (app.jsx — list view)
+├── <LibraryPage>               (library.jsx — Your roadmaps: folders, pin, select, move)
 ├── <StartScreen>               (start-screen.jsx — onboarding hero)
 │   └── <TemplatePicker>        (start-screen.jsx — template modal)
 ├── <CoachRail>                 (coach-rail.jsx — left rail, 7-step checklist)
@@ -170,6 +183,18 @@ updateRoadmaps(prev => prev.map(record =>
 ```
 
 Internally calls `saveRoadmapCollection(next)` after the React state update.
+
+### Other stored state
+
+| What | Where | Notes |
+|------|-------|-------|
+| Roadmaps, item history (browser copy) | `localStorage` `ddrm_roadmaps_v1` | ~5 MB browser limit; other tabs sync through the `storage` event |
+| Source files, folders, revisions | IndexedDB `ddrm_sources_v1` | The library storage meter uses `navigator.storage.estimate()`, so it includes these |
+| Last News Impact run | `sessionStorage` `ddrm_last_assessment_<roadmapId>` | Holds results, the roadmap and settings keys they came from. A run in which no source succeeds does not replace it; a changed roadmap, source revision or setting shows an "out of date" note |
+| Durable change history | API `data/history.sqlite3` | Synced from the browser copy; deleted with the roadmap |
+
+Applying advice is idempotent: `applyGuidanceNotes` skips an item whose advice
+already contains the same note (same source, revision and text).
 
 ---
 

@@ -8,18 +8,18 @@ Real problems that have actually happened on this project, with the real causes.
 
 ### `ModuleNotFoundError` for something in requirements.txt
 
-You are not in the virtual environment. Your prompt should start with `(venv)`.
+You are not in the virtual environment. Your prompt should start with `(.venv-cpu)` or `(.venv-gpu)`.
 
 === "Windows"
 
     ```bash
-    venv\Scripts\activate
+    .\.venv-cpu\Scripts\Activate.ps1
     ```
 
 === "macOS / Linux"
 
     ```bash
-    source venv/bin/activate
+    source .venv-cpu/bin/activate
     ```
 
 This catches everyone. Every new terminal needs it again.
@@ -35,7 +35,7 @@ of the Python that made it.
 Check the paths inside:
 
 ```bash
-cat venv/pyvenv.cfg
+cat .venv-cpu/pyvenv.cfg
 ```
 
 If `home =` points somewhere that does not exist on your machine, you have two
@@ -44,15 +44,15 @@ options:
 **Option A — rebuild it** (safe, slow, ~2 GB download):
 
 ```bash
-python -m venv venv --clear
+python -m venv .venv-cpu --clear
 ```
 
 ```bash
-pip install -r requirements.txt
+..venv-cpuScriptspython.exe -m pip install -r requirements.lock
 ```
 
 **Option B — repoint it** (fast, only if the Python version matches). Edit
-`venv/pyvenv.cfg` and replace `home` and `executable` with the path to your own
+`.venv-cpu/pyvenv.cfg` (or `.venv-gpu/pyvenv.cfg`) and replace `home` and `executable` with the path to your own
 Python. This only works if the major.minor version is the same, because the
 installed packages are compiled for a specific Python ABI.
 
@@ -110,14 +110,41 @@ the number before committing or every existing user keeps the stale copy.
 
 ---
 
-### The advisor says "Failed to fetch"
+### "Cannot reach the analysis service at 127.0.0.1:7875"
 
-The frontend cannot reach the backend.
+The frontend cannot reach the backend. (Older builds showed "Failed to fetch".)
+Your last successful assessment stays on screen; click **Retry** once the
+service is back.
 
 1. Is the backend running? Check <http://127.0.0.1:7875/api/health>.
 2. Is it on a different port? The frontend stores an override in
    `localStorage` under `ddrm_advisor_api_url`. Clear it, or set it correctly
    in the API endpoint field.
+
+---
+
+### A Python change has no effect
+
+The analysis service loads `src/` once at start-up. Close the
+**Start Roadmap Review** window and start it again. Front-end files only need a
+page reload.
+
+---
+
+### A web address will not import
+
+The message names the cause:
+
+| Message | Meaning / what to do |
+|---------|----------------------|
+| *Enter a full web address starting with http:// or https://* | Not a URL, another scheme (`file:`), or it contains a user name/password |
+| *Article URLs must use port 80 or 443* / *private and local networks are blocked* | Blocked on purpose (protects your machine and network) |
+| *The site's security certificate could not be verified* | Python on this machine does not trust the site's certificate (seen with example.com). Paste the text instead, or check antivirus HTTPS scanning / Windows root certificates |
+| *The site sent br-compressed content* | Only gzip and deflate are supported. Paste the text instead |
+| *The site took too long to answer* / *Could not connect* | Network problem or the site blocks automated readers |
+| *No readable article text was found* | The page needs JavaScript or a login. Paste the text |
+
+Pages over 2 MB (after decompression) are refused.
 
 ---
 

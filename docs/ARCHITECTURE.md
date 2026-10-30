@@ -137,7 +137,8 @@ change. Legacy v1 (single-state key `"ddrm_v1"`) auto-migrates on load.
 | File | One-line summary |
 |------|------------------|
 | `config.py` | All tunables: models, PESTLE labels, weights, tolerance bands, thresholds. **Edit here, nothing else.** |
-| `api/roadmap_api.py` | FastAPI app. Single `POST /api/recommend` endpoint. CORS open. |
+| `api/roadmap_api.py` | FastAPI app: `POST /api/recommend`, `POST /api/extract`, `GET/POST/DELETE /api/history/{roadmap_id}`, `GET /api/health`, `GET /api/config`. CORS only for `http://127.0.0.1` / `http://localhost` pages (any port). |
+| `api/history_store.py` | Append-only SQLite change log (`data/history.sqlite3`). Rows for a roadmap are removed by `DELETE /api/history/{id}`, which the page calls after a deleted roadmap's Undo window. |
 | `ui/app.py` | `run_pipeline()` orchestrator. UI-framework free, so the advisor API delegates here without pulling in gradio/plotly/pandas. |
 | `ui/gradio_app.py` | Optional Gradio dev UI over `run_pipeline()`. Not needed to run the delivered app. |
 | `core/extractor.py` | URL → article text. 4-strategy chain (trafilatura → newspaper3k → readability → bs4). |
@@ -160,7 +161,8 @@ change. Legacy v1 (single-state key `"ddrm_v1"`) auto-migrates on load.
 | `roadmap-grid.jsx` | Canvas + drag-drop. Renders chips + multi-band span items. |
 | `modals.jsx` | ItemModal / GlossaryModal / ImportModal / StructureModal. |
 | `impact-advisor.jsx` | News input + result panel. Only file that calls the API. |
-| `start-screen.jsx` | Onboarding hero + template picker. |
+| `start-screen.jsx` | New roadmap screen + template library modal. |
+| `library.jsx` | Your roadmaps page (folders, pin, multi-select, drag to move) Pure helpers in `lib/library.js`. |
 | `primitives.jsx` | Icon (24 SVGs), Toast, GlossaryCard, InfoDot. |
 | `tweaks-panel.jsx` | Floating dev tweak panel (host-iframe protocol; mostly inert in standalone use). |
 | `lib/exports.js` | ESM mirror of pure helpers from `app.jsx`, used only by Vitest. |
