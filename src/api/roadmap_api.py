@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from ui.app import run_pipeline  # noqa: E402  (import after sys.path mutation)
 from config import KEYPOINTS_MIN, KEYPOINTS_MAX, DDRM_THRESHOLDS, GUIDANCE_MODELS  # noqa: E402
 from core.guidance import resolve_guidance_model  # noqa: E402
+from core.extractor import extract_article  # noqa: E402
 
 VALID_INPUT_MODES = {"URL", "Text"}
 DEFAULT_INPUT_MODE = "Text"
@@ -31,14 +32,25 @@ HOST = "127.0.0.1"
 PORT = 7875
 
 
+class SourceReference(BaseModel):
+    id: str = Field(min_length=1, max_length=100)
+    revision: int = Field(ge=1)
+    name: str = Field(min_length=1, max_length=300)
+
+
+class ExtractRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=4096)
+
+
 class RecommendRequest(BaseModel):
-    input_text: str = Field(..., min_length=1)
+    input_text: str = Field(..., min_length=1, max_length=200_000)
     input_mode: str = DEFAULT_INPUT_MODE
     max_points: int = DEFAULT_KEYPOINTS
     roadmap: Dict[str, Any]
     use_expert_workshop: bool = True
     llm_model: str | None = None
     allow_external_ai: bool = False
+    source_ref: SourceReference | None = None
 
 
 class RecommendResponse(BaseModel):
@@ -64,6 +76,21 @@ def health() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.post("/api/extract")
+def extract(req: ExtractRequest) -> Dict[str, str]:
+    """Stateless HTML extraction through the same bounded, SSRF-safe fetcher."""
+    try:
+        title, text = extract_article(req.url)
+        if len(text) > 200_000:
+            raise ValueError("Article exceeds 200,000 characters; import a shorter excerpt.")
+        return {"title": title, "text": text, "url": req.url, "method": "html"}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logging.getLogger(__name__).exception("Source extraction failed")
+        raise HTTPException(status_code=502, detail="Could not extract this page. Retry or paste its readable text.") from exc
+
+
 @app.post("/api/recommend", response_model=RecommendResponse)
 def recommend(req: RecommendRequest) -> RecommendResponse:
     try:
@@ -80,6 +107,8 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
             llm_model=model,
             allow_external_ai=req.allow_external_ai,
         )
+        if req.source_ref is not None:
+            result["source_ref"] = req.source_ref.model_dump()
         return RecommendResponse(result=result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
