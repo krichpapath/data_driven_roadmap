@@ -6,9 +6,9 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Path as PathParam
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -21,6 +21,7 @@ from ui.app import run_pipeline  # noqa: E402  (import after sys.path mutation)
 from config import KEYPOINTS_MIN, KEYPOINTS_MAX, DDRM_THRESHOLDS, GUIDANCE_MODELS  # noqa: E402
 from core.guidance import resolve_guidance_model  # noqa: E402
 from core.extractor import extract_article  # noqa: E402
+from api import history_store  # noqa: E402
 
 VALID_INPUT_MODES = {"URL", "Text"}
 DEFAULT_INPUT_MODE = "Text"
@@ -57,10 +58,32 @@ class RecommendResponse(BaseModel):
     result: Dict[str, Any]
 
 
+class HistoryEvent(BaseModel, extra="allow"):
+    # The whole event is stored as sent; these are the fields the store indexes on.
+    event_id: str = Field(min_length=1, max_length=120)
+    timestamp: str = Field(min_length=10, max_length=40)
+    item_id: str | None = Field(default=None, max_length=200)
+    item_name_snapshot: str | None = Field(default=None, max_length=1000)
+    event_type: str | None = Field(default=None, max_length=40)
+    origin_type: str | None = Field(default=None, max_length=40)
+    actor_id: str | None = Field(default=None, max_length=120)
+    fields: List[str] = Field(default_factory=list, max_length=20)
+    important: bool = False
+    search_text: str = Field(default="", max_length=400_000)
+
+
+class HistoryBatch(BaseModel):
+    events: List[HistoryEvent] = Field(max_length=1000)
+
+
+RoadmapId = PathParam(min_length=1, max_length=200)
+
+
 app = FastAPI(title="DDRM Roadmap Advisor API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    # Only the local web page may call the API: any other site open in the browser must not read or write history.
+    allow_origin_regex=r"^http://(127\.0\.0\.1|localhost)(:\d+)?$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -117,6 +140,38 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
     except Exception as exc:
         logging.getLogger(__name__).exception("Advisor failed")
         raise HTTPException(status_code=500, detail="Advisor failed unexpectedly. Check server logs.") from exc
+
+
+@app.post("/api/history/{roadmap_id}/events")
+def add_history(req: HistoryBatch, roadmap_id: str = RoadmapId) -> Dict[str, int]:
+    conn = history_store.connect()
+    try:
+        return {"stored": history_store.add_events(conn, roadmap_id, [e.model_dump() for e in req.events])}
+    finally:
+        conn.close()
+
+
+@app.get("/api/history/{roadmap_id}")
+def get_history(roadmap_id: str = RoadmapId, q: str = "", item_id: str = "", event_type: str = "", origin_type: str = "",
+                actor_id: str = "", field: str = "", important: bool = False, since: str = "", until: str = "",
+                sort: str = "desc", offset: int = 0, limit: int = 50) -> Dict[str, Any]:
+    filters = {"q": q.strip(), "item_id": item_id, "event_type": event_type, "origin_type": origin_type, "actor_id": actor_id,
+               "field": field, "important": important, "since": since, "until": until, "sort": sort}
+    conn = history_store.connect()
+    try:
+        return history_store.query(conn, roadmap_id, filters, max(0, offset), _clamp(limit, 0, 200))
+    finally:
+        conn.close()
+
+
+@app.delete("/api/history/{roadmap_id}")
+def delete_history(roadmap_id: str = RoadmapId) -> Dict[str, int]:
+    """Called when a roadmap is deleted, so its change log does not outlive it."""
+    conn = history_store.connect()
+    try:
+        return {"deleted": history_store.delete_roadmap(conn, roadmap_id)}
+    finally:
+        conn.close()
 
 
 @app.get("/api/config")

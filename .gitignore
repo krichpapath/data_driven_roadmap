@@ -129,3 +129,6 @@ node_modules/
 # --- MkDocs build output ---------------------------------------------------
 # The docs site is generated from the local docs/ folder by `mkdocs build`.
 site/
+
+# Durable roadmap history (src/api/history_store.py)
+/data/
