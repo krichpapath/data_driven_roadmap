@@ -7,11 +7,6 @@
 pytest==9.1.1
 
 httpx==0.28.1  # FastAPI TestClient
-# Gradio development UIs only (src/ui/gradio_app.py, src/ui/keypoints_lab.py).
-# The delivered app is FastAPI + roadmap_builder/, which needs none of these.
-gradio==6.30.0
-plotly==7.1.0
-pandas==3.0.6
 
 # Documentation site (the developer handbook in docs/).
 #   mkdocs serve   -> preview at http://127.0.0.1:8000
