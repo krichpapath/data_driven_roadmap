@@ -71,7 +71,7 @@ globalThis.SourceLogic = Object.freeze({
       verdict: severity >= thresholds.revise ? 'Revise' : severity >= thresholds.adjust ? 'Adjust' : 'Maintain' };
   },
   async run(snapshot, request, onResult, cancelled) {
-    // ponytail: sequential requests reuse the existing serialized local model pipeline.
+    // shortcut: one request at a time matches the serialized local pipeline; go parallel only with isolated model workers.
     const results = [];
     for (const source of snapshot) {
       if (cancelled()) break;

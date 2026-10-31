@@ -355,9 +355,9 @@ input, textarea, select { font: inherit; color: inherit; }
   .appbar-row-in { padding-inline: 16px; }
   .appbar-row2 { padding: 0 16px 0 7px; }
   .appbar .brand-name em, .appbar-row-in > .appbar-divider, .appbar-mini-title, .appbar-mini-in .appbar-divider { display: none; }
-  .appbar-tabs a { padding: 0 9px; }
-  .appbar-tabs a span { display: none; }
-  .appbar-tabs a.on span { display: inline; }
+  .appbar-tabs a { padding-inline: clamp(5px, 2vw, 9px); }
+  .appbar-tabs a svg { display: none; }
+  .appbar-mini-in { padding-inline: 3px 5px; }
 }
 .topbar-spacer { flex: 1; }
 .topbar-divider {

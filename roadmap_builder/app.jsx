@@ -1,4 +1,4 @@
-/* global React, ReactDOM, SourceStore, SourceWorkspace, Icon, Logo, InfoDot, StartScreen, TemplatePicker, LibraryPage, useRoadmapFolders, RoadmapPage, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, HistoryPage, Landing, RoadmapHistory, AdvisorUtils, Toast, GLOSSARY, TEMPLATES, buildFromTemplate, TweaksPanel, useTweaks, TweakSection, TweakToggle, TweakRadio */
+/* global React, ReactDOM, SourceStore, SourceWorkspace, Icon, Logo, InfoDot, StartScreen, TemplatePicker, LibraryPage, useRoadmapFolders, RoadmapPage, ItemModal, GlossaryModal, ImportModal, StructureModal, ImpactAdvisor, HistoryPage, Landing, RoadmapHistory, AdvisorUtils, Toast, GLOSSARY, TEMPLATES, buildFromTemplate */
 const LEGACY_STORAGE_KEY = "ddrm_v1";
 const ROADMAPS_KEY = "ddrm_roadmaps_v1";
 const TOAST_DURATION_MS = 2200;
@@ -13,19 +13,6 @@ const HISTORY_ACTOR = (() => {
 
 function createRoadmapId() {
   return `rm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function titleOf(state) {
-  return (state?.title || "").trim() || "Untitled Roadmap";
-}
-
-function isValidRoadmapState(state) {
-  return !!state
-    && typeof state === "object"
-    && !Array.isArray(state)
-    && Array.isArray(state.categories)
-    && Array.isArray(state.bands)
-    && Array.isArray(state.items);
 }
 
 function makeRecord(state, id = createRoadmapId(), updatedAt = new Date().toISOString()) {
@@ -88,25 +75,6 @@ function loadRoadmapCollection() {
   return { roadmaps, loadError, migratedId };
 }
 
-function parseRoute(hash) {
-  const path = (hash || "").replace(/^#/, "");
-  if (!path || path === "/") return { view: "empty" };
-
-  const parts = path.split("/").filter(Boolean);
-  if (parts[0] !== "roadmaps") return { view: "not-found" };
-  if (parts.length === 1) return { view: "roadmaps" };
-  if (parts.length === 2 && parts[1] === "new") return { view: "new" };
-  if (parts.length === 2) return { view: "builder", id: decodeURIComponent(parts[1]) };
-  if (parts.length === 3 && parts[1] === "new" && parts[2] === "templates") return { view: "new", picker: true };
-  if (parts.length === 3 && parts[2] === "import") {
-    return { view: "builder", id: decodeURIComponent(parts[1]), action: "import" };
-  }
-  if (parts.length === 3 && ["sources", "impact", "history"].includes(parts[2])) {
-    return { view: "builder", id: decodeURIComponent(parts[1]), tab: parts[2] };
-  }
-  return { view: "not-found" };
-}
-
 function go(path) {
   window.location.hash = path;
 }
@@ -151,102 +119,6 @@ function useToast(durationMs = TOAST_DURATION_MS) {
   return [toast, showToast];
 }
 
-// Build CSV/JSON/text payloads for the "export selection" modal.
-// Kept module-level (pure) so they're trivially testable and don't capture
-// stale closures from the App component.
-//
-// TEST MIRROR: `roadmap_builder/lib/exports.js` carries an ESM copy of these
-// helpers + `formatGuidanceNote`, `titleOf`, `isValidRoadmapState`, `parseRoute`.
-// Vitest imports the mirror. If you change behaviour here, update the mirror
-// or tests will silently lock the OLD behaviour.
-function csvEscape(value) {
-  return `"${String(value || "").replace(/"/g, '""')}"`;
-}
-
-function buildSelectionJson(state, picked) {
-  const usedCats = new Set(picked.map(i => i.catId));
-  const usedBands = new Set(picked.flatMap(i => i.bands));
-  return JSON.stringify({
-    title: `${state.title} (selection)`,
-    sourceTemplate: state.templateId,
-    exportedAt: new Date().toISOString(),
-    categories: state.categories.filter(c => usedCats.has(c.id)),
-    bands: state.bands.filter(b => usedBands.has(b.id)),
-    items: picked
-  }, null, 2);
-}
-
-function buildSelectionCsv(state, picked) {
-  const head = ["Name", "Layer", "Time bands", "PESTLE", "Description"].join(",");
-  const rows = picked.map(item => {
-    const cat = state.categories.find(c => c.id === item.catId);
-    const bandLabels = item.bands
-      .map(bid => state.bands.find(b => b.id === bid)?.label)
-      .filter(Boolean)
-      .join(" / ");
-    return [
-      csvEscape(item.name),
-      csvEscape(cat?.label || ""),
-      csvEscape(bandLabels),
-      csvEscape((item.pestle || []).join(" ")),
-      csvEscape(item.description || "")
-    ].join(",");
-  });
-  return [head, ...rows].join("\n");
-}
-
-function buildSelectionText(state, picked) {
-  const groups = picked.reduce((acc, item) => {
-    const cat = state.categories.find(c => c.id === item.catId);
-    const key = cat?.label || "Unknown";
-    (acc[key] ||= []).push(item);
-    return acc;
-  }, {});
-
-  let out = `# ${state.title} - selected items (${picked.length})\n\n`;
-  Object.entries(groups).forEach(([catLabel, items]) => {
-    out += `## ${catLabel}\n`;
-    items.forEach(item => {
-      const arrow = item.bands
-        .map(bid => state.bands.find(b => b.id === bid)?.label)
-        .filter(Boolean)
-        .join(" -> ");
-      const tags = item.pestle?.length ? `  [${item.pestle.join(", ")}]` : "";
-      out += `  - ${item.name}${arrow ? `  (${arrow})` : ""}${tags}\n`;
-      if (item.description) out += `      ${item.description}\n`;
-    });
-    out += "\n";
-  });
-  return out;
-}
-
-const EXPORT_FORMATS = {
-  json: { ext: "json", mime: "application/json", build: buildSelectionJson },
-  csv:  { ext: "csv",  mime: "text/csv",         build: buildSelectionCsv },
-  text: { ext: "txt",  mime: "text/plain",       build: buildSelectionText }
-};
-
-// Format an Impact Advisor entry into note text. Supports both new
-// (multi-expert advices array) and legacy (single suggested_change) shapes.
-function formatGuidanceNote(entry, verdict) {
-  const lines = [];
-  if (Array.isArray(entry.advices) && entry.advices.length > 0) {
-    const expertNoun = entry.advices.length === 1 ? "expert" : "experts";
-    lines.push(`Impact review (${verdict}), ${entry.advices.length} ${expertNoun}:`);
-    entry.advices.forEach(a => {
-      const role = a.role || "Advisor";
-      const action = a.action ? ` (${a.action})` : "";
-      lines.push(`  [${role}${action}] ${a.advice || ""}`);
-      if (a.evidence_basis) lines.push(`    Evidence: ${a.evidence_basis}`);
-    });
-  } else {
-    lines.push(`Impact review (${verdict}): ${entry.suggested_change || ""}`);
-    if (entry.evidence_basis) lines.push(`Evidence: ${entry.evidence_basis}`);
-  }
-  return lines.filter(Boolean).join("\n");
-}
-
-// Advice notes cite source IDs; after copying a library under new IDs, point the notes at the copies.
 function remapSourceIds(state, ids) {
   const pairs = Object.entries(ids || {}).filter(([from, to]) => from !== to);
   if (!pairs.length) return state;
@@ -397,12 +269,7 @@ function App() {
   const [loadError] = React.useState(initialCollection.loadError);
   const migratedId = initialCollection.migratedId;
 
-  // Tweaks: density / coach visibility / band-style
-  const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
-    "density": "comfortable",
-    "showCoachRail": true,
-    "bandStyle": "gradient"
-  }/*EDITMODE-END*/);
+  const [showCoach, setShowCoach] = React.useState(true);
 
   const [state, setState] = React.useState(null);
   const [stateRoadmapId, setStateRoadmapId] = React.useState(null);
@@ -925,7 +792,7 @@ function App() {
         onOpenSource={id => { setSourceFocus(id); go(`${base}/sources`); }} />}
       {tab === "roadmap" && <>
       <RoadmapPage state={state} setState={setState} selected={selected} setSelected={setSelected}
-        showCoach={tweaks.showCoachRail} setShowCoach={v => setTweak("showCoachRail", v)} exported={exported} onJump={onJump}
+        showCoach={showCoach} setShowCoach={setShowCoach} exported={exported} onJump={onJump}
         onShowGlossary={() => setShowGloss(true)} onImport={() => go(`${base}/import`)} onExport={doExport} onPrint={printRoadmap} onCopyText={copyRoadmapText}
         onStructure={() => setShowStructure(true)} undo={undo} canUndo={canUndo} onAddItem={onAddItem} onEditItem={onEditItem} onMoveItem={onMoveItem}
         onDeleteSelected={onDeleteSelected} onExportSelected={onExportSelected} showToast={showToast} />
@@ -992,22 +859,6 @@ function App() {
         </Dialog>
       )}
 
-      <TweaksPanel title="Tweaks">
-        <TweakSection title="Onboarding">
-          <TweakToggle label="Show Roadmap Coach (left rail)" value={tweaks.showCoachRail} onChange={v => setTweak("showCoachRail", v)} />
-        </TweakSection>
-        <TweakSection title="Density">
-          <TweakRadio
-            label="Spacing"
-            value={tweaks.density}
-            onChange={v => setTweak("density", v)}
-            options={[
-              { value: "comfortable", label: "Comfortable" },
-              { value: "compact",     label: "Compact" }
-            ]}
-          />
-        </TweakSection>
-      </TweaksPanel>
       </>}
       {/* Outside the tab fragment so Sources and News Impact show toasts too. */}
       <Toast on={toast.on} message={toast.msg} tone={toast.tone} action={toast.action} />

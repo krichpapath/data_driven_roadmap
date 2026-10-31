@@ -294,7 +294,7 @@ function HistoryPage({ roadmapId, title, history, items, actorId, onSync, onOpen
           {chips.map(([k, text, reset]) => <button key={k} type="button" className="history-chip" aria-label={`Remove filter ${text}`} onClick={() => set(k, reset)}>{text}<Icon name="x" size={11} aria-hidden="true" /></button>)}
           {chips.length > 0 && <button type="button" className="history-link" onClick={() => { setF(NO_FILTERS); setView("all"); }}>Clear filters</button>}
         </div>
-        {data?.offline && <p className="history-offline" role="note">The analysis service is not running, so you are seeing only the changes saved in this browser. Start Roadmap Review to see the full history; nothing is lost in the meantime.</p>}
+        {data?.offline && <p className="history-offline" role="note">The analysis service is not running, so you are seeing only the changes saved in this browser. Start Data Driven Roadmap to see the full history; nothing is lost in the meantime.</p>}
 
         {data && !data.groups.length ? (
           <div className="history-empty">

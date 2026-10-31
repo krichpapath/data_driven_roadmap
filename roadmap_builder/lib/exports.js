@@ -1,23 +1,8 @@
-// Pure-function mirror of helpers defined in app.jsx, exposed as an ES module
-// for unit tests (Vitest).
+// Shared helpers, loaded by index.html as a module and used by the JSX files
+// through globalThis. Vitest imports the same file, so its tests run the real code.
 //
-// WHY a separate file?
-//   The runtime app loads every JSX file via <script type="text/babel"> tags
-//   (no bundler, no ESM). Vitest needs `import` statements. To bridge the two
-//   without forcing a bundler, we copy the pure helpers here and re-export
-//   them. The originals in app.jsx stay byte-identical so the runtime
-//   continues to work without any HTML change.
-//
-// MAINTENANCE CONTRACT:
-//   If you change `formatGuidanceNote`, `csvEscape`, `buildSelectionJson`,
-//   `buildSelectionCsv`, `buildSelectionText`, `titleOf`, `isValidRoadmapState`,
-//   or `parseRoute` in app.jsx, you MUST mirror the change here. Tests in
-//   roadmap_builder/__tests__/exports.test.js verify behaviour against this
-//   file only. Drift = silently passing tests against stale logic.
-//
-// One-line litmus check before commit:
-//   diff <(grep -A20 'function csvEscape' app.jsx) \
-//        <(grep -A20 'export function csvEscape' lib/exports.js)
+// The "Reducers" section and validateRoadmap below are still COPIES of logic
+// inside app.jsx and modals.jsx. Their tests do not prove the app's copies work.
 
 import "./advisor.js"; // sets globalThis.AdvisorUtils, as in the browser
 
@@ -286,3 +271,5 @@ export function formatGuidanceNote(entry, verdict) {
   }
   return lines.filter(Boolean).join("\n");
 }
+
+Object.assign(globalThis, { titleOf, isValidRoadmapState, parseRoute, csvEscape, buildSelectionJson, buildSelectionCsv, buildSelectionText, formatGuidanceNote });

@@ -512,7 +512,7 @@ function Landing({ savedCount }) {
           <div className="hero-grid" />
           <HeroCells />
           <div className="wrap hero-top">
-            <div className="live"><em>Live</em>A roadmap check, running below</div>
+            <div className="live"><em>Demo</em>See a sample roadmap check</div>
             <h1 id="hero-title">The world moved. <span>Does your roadmap know?</span></h1>
             <p className="lede">Data Driven Roadmap checks the news, reports and policy updates you collect against your technology roadmap. It tells you whether to maintain, adjust or revise the plan, and shows the sentences behind every result.</p>
             <div className="actions">
