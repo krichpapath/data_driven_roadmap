@@ -16,17 +16,14 @@ checkout. Budget about 30 minutes, most of which is downloading.
 | **Git** | To clone the repository | Any recent version |
 | **Python** | Runs the backend and the whole pipeline | **3.14.8 on Windows x64 (verified lock)** |
 | **A web browser** | To use the app | Chrome, Edge, Firefox, or Safari |
-| **Node.js** | *Only* to run the frontend tests | 24 LTS (24.18.0 verified) |
-
-!!! tip "Node.js is optional"
-    You do **not** need Node to use the application. It is only for running the
-    frontend test suite. Skip it if you just want the app working.
+| **Node.js** | Installs the browser's PDF and OCR tools and runs frontend tests | 24 LTS |
 
 Check what you have:
 
 ```bash
 git --version
 python --version
+node --version
 ```
 
 If `python` is not found on Windows, try `py --version` instead, and use `py`
@@ -108,8 +105,15 @@ This is the big download — roughly 2 GB, mostly PyTorch. Be patient.
     python -m pip install -r requirements.lock
     ```
 
-The runtime lock includes pytest and the API test client. For the optional
-Gradio developer UIs and documentation tools:
+Install the browser dependencies once, from the repository root:
+
+```bash
+cd roadmap_builder
+npm ci
+cd ..
+```
+
+For development, install the tests and documentation tools as well:
 
 ```bash
 python -m pip install -r requirements-dev.lock
@@ -117,9 +121,7 @@ python -m pip install -r requirements-dev.lock
 
 ??? question "Why are there two requirements files?"
     `requirements.txt` is what the *application* needs. `requirements-dev.txt`
-    adds testing tools (pytest), the documentation site (MkDocs), and the
-    optional Gradio developer UIs. A person who only wants to run the app should
-    not have to install all of that. Keeping them separate is deliberate.
+    adds testing tools and the documentation site. Neither is required to run the app.
 
 ---
 
@@ -170,10 +172,10 @@ DDRM_EXTERNAL_AI=on
 ## Step 6 — Check it worked
 
 ```bash
-pytest
+python -m pytest
 ```
 
-You should see **82 passed**. This verifies the tested Python helpers; it does
+This optional check requires the developer dependencies above. It verifies the Python helpers; it does
 not verify model downloads, model inference, or external services.
 
 Now go to [2. Run the app](first-run.md).
@@ -196,7 +198,7 @@ Use the lock files above to reproduce the validated installation. Direct
 requirements files record the selected package versions; the locks also pin
 transitive dependencies. Keep an existing environment intact when testing
 updates: create a separate virtual environment. See the
-[readiness report](../readiness/report.md) for verification and exceptions.
+[testing guide](../TESTING.md) for the checks to run.
 
 Hosted guidance requires both `DDRM_EXTERNAL_AI=on` and the advisor
 **Use hosted AI guidance** checkbox. An API key alone does not enable it.

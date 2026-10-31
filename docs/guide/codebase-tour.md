@@ -51,10 +51,6 @@ The path is: request → article text → key sentences → category and sentime
 → impact score → roadmap matches → advice. See [Architecture](../ARCHITECTURE.md)
 and [Pipeline](../PIPELINE.md) for the contract and calculations.
 
-`src/ui/gradio_app.py` and `src/ui/keypoints_lab.py` are optional development
-interfaces. Their Gradio, Plotly, and Pandas dependencies are separate from
-the delivered API/browser application.
-
 ## Frontend responsibilities
 
 | File in `roadmap_builder/` | Responsibility |
@@ -69,7 +65,6 @@ the delivered API/browser application.
 | `data.jsx` | Templates, glossary, and PESTLE definitions |
 | `coach-rail.jsx` | Onboarding checklist |
 | `primitives.jsx` | Shared visual helpers |
-| `tweaks-panel.jsx` | Appearance controls |
 | `styles.css` | Styling and theme variables |
 | `lib/exports.js` | Mirror of application helpers used by Vitest |
 

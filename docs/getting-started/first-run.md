@@ -23,12 +23,12 @@ Check it is alive by opening <http://127.0.0.1:7875/api/health> in a browser.
 You should see:
 
 ```json
-{"status":"ok"}
+{"status":"ok","models":"ready"}
 ```
 
 !!! success "That is the whole backend"
-    This confirms the API starts. Model loading and assessment require separate
-    checks; see the readiness report. Phase 1 has no database or migrations.
+    While models load, the service reports `"models":"loading"`. If it reports
+    `"failed"`, check the server window for the model error.
 
 ---
 
@@ -49,7 +49,7 @@ bundler — the browser compiles the React code itself as it loads.
 
 Now open <http://127.0.0.1:8000> in your browser.
 
-You should see the **DDRM Builder** start screen, saying "No roadmaps yet".
+The **Data Driven Roadmap** home page opens. Choose **Create a roadmap** to start.
 
 ---
 
@@ -66,9 +66,8 @@ You should see the **DDRM Builder** start screen, saying "No roadmaps yet".
    (Terminal 1: the Python backend, where all the thinking happens)
 ```
 
-The web page holds your roadmaps in the browser's own storage
-(`localStorage`). Nothing is saved on a server. Clearing your browser data
-deletes your roadmaps, so use the Export button for anything you care about.
+Roadmaps and sources stay in this browser. Choose **Export → Download with sources**
+to back up both. The local service also saves change history in `data/history.sqlite3`.
 
 ---
 

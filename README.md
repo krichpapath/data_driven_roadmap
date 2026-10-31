@@ -1,4 +1,4 @@
-# Roadmap Review
+# Data Driven Roadmap
 
 Build a technology roadmap, add news articles and reports, and see how they
 affect it. For each source the app answers **Maintain**, **Adjust** or
@@ -12,7 +12,8 @@ items to review. The final decision is always yours.
   installation, tick **Add python.exe to PATH**.
 - **Node.js 24** (LTS) from [nodejs.org](https://nodejs.org/).
 - Internet access and several GB of free disk space. The first run downloads
-  the AI models.
+  the AI models, and the web page loads React from the internet each time.
+- At least 8 GB of RAM (the models use about 3.5 GB). No graphics card needed.
 
 ## Install (once)
 
@@ -30,8 +31,8 @@ items to review. The final decision is always yours.
    cd roadmap_builder; npm.cmd ci; cd ..
    ```
 
-   **B. Computer with an NVIDIA graphics card (GPU, about 35 times faster:
-   0.6 s instead of 22 s per source, same results):**
+   **B. Computer with an NVIDIA graphics card (GPU: usually under 1 s per
+   source instead of 5–25 s, same results):**
 
    ```powershell
    python -m venv .venv-gpu
@@ -42,9 +43,14 @@ items to review. The final decision is always yours.
 
    You can install both. They live in the folders `.venv-cpu` and `.venv-gpu`.
 
+   The app picks the hardware itself when it starts and prints its choice. It
+   uses the GPU only if at least 4 GB of graphics memory is free, otherwise the
+   CPU. Results are the same either way. To force the CPU, run
+   `$env:CUDA_VISIBLE_DEVICES="-1"` before starting the service.
+
 ## Start the app (every time)
 
-Double-click **`Start Roadmap Review.cmd`** in the project folder. It starts both
+Double-click **`Start Data Driven Roadmap.cmd`** in the project folder. It starts both
 parts in one window (using `.venv-gpu` if installed, else `.venv-cpu`) and opens
 <http://127.0.0.1:8000>. Close that window to stop the app.
 
@@ -89,13 +95,15 @@ previous results stay on screen. Changing a setting marks results as out of
 date instead of deleting them; click **Assess** again to refresh them.
 
 How long it takes: in the first minute after starting Window 1, the service
-is still loading its AI models. After that, each source takes about 20–30
-seconds, or under 1 second with the GPU version.
+is still loading its AI models. After that, each source takes about 5–25
+seconds on a CPU, or usually under 1 second with a GPU. Assessing text again
+without changes is much faster until the service restarts.
 
 ## Keep your work safe
 
-- Roadmaps and sources are saved **only in this browser**. There is no
-  server database, so clearing browser data deletes them.
+- Roadmaps and sources are saved **only in this browser**, so clearing browser
+  data deletes them. Only the change history is also kept on this computer, in
+  `data/history.sqlite3`.
 - For a backup, open a roadmap and click **Export → Download with sources**.
   Restore it with **Import**.
 - Always use the same address, **<http://127.0.0.1:8000>**. A different
@@ -104,8 +112,9 @@ seconds, or under 1 second with the GPU version.
 ## Good to know
 
 - Limits: 20 MB per file, 30 PDF pages, and 10 sources per assessment.
-- The scoring models understand **English only**. Other languages are scored
-  from the English translation you approve.
+- The scoring models understand **English only**. Text mostly in another script
+  (Thai, Japanese) is refused; add the English translation you approve. Other
+  Latin-script languages such as French are not detected, so translate them too.
 - Text read from scans and photos (OCR) can contain mistakes. Check it before
   you assess. The first OCR in a language downloads that language's data.
 - The score measures how strongly the news affects the roadmap. It does not
@@ -120,15 +129,16 @@ seconds, or under 1 second with the GPU version.
 
 | What you see | What to do |
 | --- | --- |
-| "Cannot reach the analysis service" | Window 1 is closed or failed. Start it again. <http://127.0.0.1:7875/api/health> should show `{"status":"ok"}`. |
+| The service refuses requests from the page | Open the app at exactly `http://127.0.0.1:8000`. |
+| "Cannot reach the analysis service" | Window 1 is closed or failed. Start it again. <http://127.0.0.1:7875/api/health> should show `"status":"ok"` and, after a minute, `"models":"ready"`. `"failed"` means a model could not load: check the window for the error and your internet connection. |
 | The first assessment is slow | Wait a minute after starting Window 1; the models are loading. |
-| Every assessment takes 20–30 s | Normal without a graphics card. Install the GPU version (B) for under 1 s. |
+| Every assessment takes 5–25 s | Normal on a CPU. With an NVIDIA card, install version (B). If the window says `Running on CPU`, close other programs using the graphics card and restart. |
 | My roadmaps are gone | Check the address is exactly `http://127.0.0.1:8000`, or import your backup. |
 | `python` or `npm` is "not recognized" | Reinstall Python (tick **Add to PATH**) or Node.js, then open a new PowerShell window. |
 
 ## For developers
 
-Install the developer tools (tests, MkDocs, Gradio) with
+Install the developer tools (tests, MkDocs) with
 `.\.venv-cpu\Scripts\python.exe -m pip install -r requirements-dev.lock`
 (or the same with `.venv-gpu`). Use either environment in the commands below.
 
@@ -136,9 +146,9 @@ Install the developer tools (tests, MkDocs, Gradio) with
 | --- | --- |
 | `.\.venv-cpu\Scripts\python.exe -m pytest` | Python unit tests (no AI models needed) |
 | `cd roadmap_builder; npm.cmd test` | JavaScript helper tests |
-| `.\.venv-cpu\Scripts\python.exe tools\e2e_check.py` | The 10 English news scenarios against the running service; must match `docs/readiness/baseline.json` |
+| `.\.venv-cpu\Scripts\python.exe tools\e2e_check.py` | The 10 English news scenarios against the running service; must match `testdata/baseline.json` |
 
-Status on 2026-10-21: 102 Python tests and 85 JavaScript tests pass, and all
+Status on 2026-10-31: 132 Python tests and 113 JavaScript tests pass, and all
 10 scenarios match the recorded baseline on both CPU and GPU.
 
 ```text
@@ -156,10 +166,10 @@ tools/                   scenario runner and diagnostics
   minutes on a CPU, and a test now guards this.
 - Re-run `tools\e2e_check.py` after any change to models, scoring or the
   Python environment.
-- Further reading: [Changelog](CHANGELOG.md), [archive](archive/README.md),
-  and the handbook in `docs/` ([index](docs/index.md),
-  [architecture](docs/ARCHITECTURE.md), [testing](docs/TESTING.md)).
-  `docs/` and `archive/` are kept locally and are not in a Git clone.
+- Further reading: [Changelog](CHANGELOG.md) and the handbook in `docs/`
+  ([index](docs/index.md), [architecture](docs/ARCHITECTURE.md),
+  [testing](docs/TESTING.md)). Verification reports (`docs/readiness/`) and
+  `archive/` stay on the original computer and are not in a Git clone.
 
 ## License
 

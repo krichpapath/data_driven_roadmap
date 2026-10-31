@@ -10,15 +10,13 @@ suite actually establishes.
 
 | Suite | Scope | Count |
 | --- | --- | --- |
-| Python | Scoring, matching, guidance, API errors, URL security | 96 |
-| JavaScript | Existing helpers/reducers plus shared advisor/storage logic | 54 |
+| Python | Scoring, matching, guidance, API, history and URL handling | 132 |
+| JavaScript | Source library, history, routing, storage and editing helpers | 113 |
 | Model baseline | Ten synthetic English scenarios, fixed weights/revisions | 10 |
 
-The original 54 Python and 50 JavaScript tests remain included. The additional
-28 Python and 4 JavaScript cases cover Phase 1 defects; 14 further Python cases
-cover the selected advice-model upgrade. Unit tests make no
-hosted requests and do not load models. Browser checks and real articles are
-recorded separately in the [readiness report](readiness/report.md).
+Counts above were verified on October 31, 2026. Unit tests make no hosted
+requests and do not load model weights. Run the live API check below to
+compare the actual models with the ten saved scenarios.
 
 Coverage target: every pure function in `src/core/`, every reducer-style
 helper in `roadmap_builder/app.jsx`, plus the import-JSON validator.
@@ -43,7 +41,7 @@ The runner explicitly sets `allow_external_ai=False` and makes no hosted
 calls. To compare full model output without the API (cached models required):
 
 ```bash
-python tools/readiness_check.py --compare docs/readiness/baseline.json --output tmp/comparison.json
+python tools/readiness_check.py --compare testdata/baseline.json --output tmp/comparison.json
 ```
 
 Do not overwrite the baseline to make a failing update pass. Review the cause.
@@ -113,7 +111,7 @@ roadmap_builder/__tests__/             ← Frontend (Vitest)
 ├── exports.test.js                    Pure helpers (titleOf, parseRoute, ...)
 └── reducers.test.js                   App-level state transforms
 
-roadmap_builder/lib/exports.js         ← ESM mirror (test entrypoint)
+roadmap_builder/lib/exports.js         ← Shared routing and export helpers
 ```
 
 ---
@@ -126,7 +124,7 @@ limits of the current tests, not a prohibition on testing integrations.
 ### 1. Keep unit tests focused on pure logic.
 
 The pipeline's verdict math is owned by `src/core/impact.py` — pure functions
-on dicts. The frontend tests import copies of application helpers from
+on dicts. The frontend tests import application helpers from
 `lib/exports.js`. They do not directly exercise `app.jsx` or the React tree.
 Phase 1 tests exercise the FastAPI HTTP layer and mocked provider failures.
 Actual hosted responses and real model inference require separate smoke checks. Use appropriate integration or manual
@@ -142,17 +140,11 @@ understand the impact formula chain without ever opening `impact.py`.
 Comments in test files explain *why*, not *what*. Sample inputs are
 hand-picked to illustrate boundaries, not random.
 
-### 3. Keep the existing frontend mirror aligned.
+### 3. Test the same helper that the app uses.
 
-The frontend has no bundler at runtime — `<script type="text/babel">` does
-the work in the browser. To make the same code testable under Vitest, we
-mirror the pure helpers from `app.jsx` into `roadmap_builder/lib/exports.js`
-as ES modules. The mirror's header comment carries the maintenance contract:
-*if you change the helper in `app.jsx`, mirror the change here, or tests
-silently lock the old behaviour.*
-
-Removing the duplication is a separate development task. A bundler migration
-is one previously suggested approach, not a prerequisite for this cleanup.
+The browser and Vitest use the same routing and export functions from
+`roadmap_builder/lib/exports.js`. The reducer and import-validation tests still
+exercise copies of component logic; check those editing flows in a browser too.
 
 ---
 
@@ -292,8 +284,7 @@ def test_<scenario>_<expected_behaviour>():
 1. Decide whether the helper is a *pure function* (goes in `lib/exports.js`)
    or a *reducer-style state transform* (also in `lib/exports.js`, but tests
    live in `reducers.test.js`).
-2. Add the helper export to `lib/exports.js`. Keep the in-component copy in
-   `app.jsx` byte-identical and add a comment pointing to the mirror.
+2. Add the helper export to `lib/exports.js` and call that implementation from the component.
 3. Add tests under `roadmap_builder/__tests__/<file>.test.js`. Vitest
    auto-discovers anything under `__tests__/` ending in `.test.js`.
 
@@ -407,8 +398,8 @@ small follow-up task — see `CONTRIBUTING.md`.
 
 ## Reporting verified results
 
-Use the dated [readiness report](readiness/report.md) when reporting the current
-baseline. Preserve the distinction between unit tests, live model regression,
+Use `testdata/baseline.json` for expected scenario results. Preserve the
+distinction between unit tests, live model regression,
 manual browser checks, and real-article quality inspection. Historical academic
 results are retained in the archive; they do not establish current acceptance.
 

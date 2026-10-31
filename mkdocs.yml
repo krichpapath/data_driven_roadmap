@@ -1,6 +1,6 @@
-site_name: DDRM Roadmap Review — Developer Handbook
+site_name: DDRM Data Driven Roadmap — Developer Handbook
 site_description: >-
-  Development guide for the Roadmap Review application: setup, architecture,
+  Development guide for the Data Driven Roadmap application: setup, architecture,
   scoring, testing, and maintenance.
 docs_dir: docs
 site_dir: site
@@ -66,8 +66,6 @@ nav:
       - The scoring maths: guide/scoring.md
       - Tour of the codebase: guide/codebase-tour.md
   - Working on it:
-      - Phase 1 readiness: readiness/report.md
-      - Requirements checklist: readiness/requirements-checklist.md
       - Common tasks: guide/common-tasks.md
       - Troubleshooting: guide/troubleshooting.md
   - Reference (deep dives):

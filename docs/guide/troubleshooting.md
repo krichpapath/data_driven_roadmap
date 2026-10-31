@@ -126,7 +126,7 @@ service is back.
 ### A Python change has no effect
 
 The analysis service loads `src/` once at start-up. Close the
-**Start Roadmap Review** window and start it again. Front-end files only need a
+**Start Data Driven Roadmap** window and start it again. Front-end files only need a
 page reload.
 
 ---

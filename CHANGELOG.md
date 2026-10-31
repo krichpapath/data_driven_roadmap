@@ -11,6 +11,17 @@ evidence. See README.md for the verified development baseline.
 
 ## [Unreleased]
 
+### Final delivery hardening (2026-10-31)
+
+- Removed the prototype settings panel; the roadmap still has its Coach button. Phone navigation now shows each section name, and the home page labels its sample assessment as a demo.
+
+- All models now share one device decision: the GPU only with at least 4 GB of VRAM free, otherwise the CPU. The choice is printed at startup.
+- PESTLE and sentiment results are cached in memory (256 entries each), and the PESTLE anchors are embedded once.
+- The web page uses the production builds of React.
+- API: malformed roadmaps, non-Latin text and bad history timestamps now return an error; only `http://127.0.0.1:8000` may call it; foreign Host headers and bodies over 64 MB are refused; `/api/health` reports model state; hosted advice no longer holds the scoring lock; hosted AI defaults to off.
+- Removed newspaper3k and unreachable pipeline code; eight shared JS helpers now have one copy, used by both the app and its tests; added a Content-Security-Policy; the baseline moved to `testdata/` so a clone can run the scenarios; one product name, Data Driven Roadmap.
+- Archived the Gradio development UIs and `tools/dependency_audit.py`; removed `extract_keypoints()`, Gradio, Plotly and pandas from the developer install, and pytest from `requirements.lock`.
+
 ### 2026-10-30 — QA audit fixes (tmp/qa-audit-2026-10-30)
 
 - News Impact keeps the last good assessment when a new run fails or is stopped

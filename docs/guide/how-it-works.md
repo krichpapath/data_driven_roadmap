@@ -53,11 +53,10 @@ navigation and cookie banners. It tries four different libraries in order and
 takes the first result that is at least 200 characters:
 
 1. `trafilatura` — best general purpose, handles many languages
-2. `newspaper3k` — strong on traditional news sites
-3. `readability-lxml` — the Firefox "reader mode" algorithm
-4. `BeautifulSoup` — crude fallback, just grabs `<p>` tags
+2. `readability-lxml` — the Firefox "reader mode" algorithm
+3. `BeautifulSoup` — crude fallback, just grabs `<p>` tags
 
-If all four fail, it takes the longest partial result. If everything is empty,
+If all three fail, it takes the longest partial result. If everything is empty,
 it raises an error.
 
 If you pasted text instead of a URL, this stage does nothing at all.

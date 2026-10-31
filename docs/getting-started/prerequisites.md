@@ -16,11 +16,7 @@ If you already have Python 3.14.8 (verified on Windows x64) and Git, skip to
 | **Python 3.14.8 (verified on Windows x64)** | Runs the backend and the whole analysis pipeline | **Yes** |
 | **Git** | Downloads the project and tracks your changes | **Yes** |
 | **A code editor** | Reading and writing the code | Strongly recommended |
-| **Node.js 24 LTS** | *Only* runs the frontend tests | Optional |
-
-!!! tip "You can skip Node.js"
-    The application does not need it. It is only for the 50 frontend unit
-    tests. Install it later if you ever need them.
+| **Node.js 24 LTS** | Installs PDF and OCR tools for the browser | Required for setup |
 
 You also need roughly **6 GB of free disk space**: about 2 GB for Python
 packages and about 2.5 GB for the AI models the project downloads on first run.
@@ -181,9 +177,7 @@ Any editor works. Avoid Notepad — it mangles line endings.
 
 ---
 
-## Install Node.js (optional)
-
-Only needed to run the frontend tests.
+## Install Node.js
 
 === "Windows / macOS"
 

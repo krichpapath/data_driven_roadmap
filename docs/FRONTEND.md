@@ -30,18 +30,17 @@ attached by an earlier one (via `Object.assign(window, {...})`).
 lib/*.js (plain scripts) → AdvisorUtils, RoadmapHistory, RoadmapStorage, RoadmapLibrary,
                            SourceLogic, SourceStore, SourceProcessing (+ tesseract.js)
 1. sources.jsx          → SourcesPage
-2. tweaks-panel.jsx     → useTweaks, TweaksPanel
-3. data.jsx             → PESTLE, PALETTE, TEMPLATES, GLOSSARY, buildFromTemplate
-4. primitives.jsx       → Icon, Logo, Toast, Dialog, LibConfirm, confirmDeletion, Select, Check
-5. start-screen.jsx     → StartScreen, TemplatePicker
-6. coach-rail.jsx       → CoachRail
-7. roadmap-grid.jsx     → RoadmapGrid (uses Chip internally)
-8. modals.jsx           → ItemModal, GlossaryModal, ImportModal, StructureModal
-9. impact-advisor.jsx   → ImpactAdvisor
-10. history.jsx         → HistoryPage
-11. landing.jsx         → Landing (styles in landing.css, scoped under .lp)
-12. library.jsx         → LibraryPage, useRoadmapFolders (helpers in lib/library.js)
-13. app.jsx             → App (mounted into #root)
+2. data.jsx             → PESTLE, PALETTE, TEMPLATES, GLOSSARY, buildFromTemplate
+3. primitives.jsx       → Icon, Logo, Toast, Dialog, LibConfirm, confirmDeletion, Select, Check
+4. start-screen.jsx     → StartScreen, TemplatePicker
+5. coach-rail.jsx       → CoachRail
+6. roadmap-grid.jsx     → RoadmapGrid (uses Chip internally)
+7. modals.jsx           → ItemModal, GlossaryModal, ImportModal, StructureModal
+8. impact-advisor.jsx   → ImpactAdvisor
+9. history.jsx         → HistoryPage
+10. landing.jsx         → Landing (styles in landing.css, scoped under .lp)
+11. library.jsx         → LibraryPage, useRoadmapFolders (helpers in lib/library.js)
+12. app.jsx             → App (mounted into #root)
 ```
 
 Every `<script>` and stylesheet has a `?v=N` query. Bump it whenever you edit
@@ -71,8 +70,7 @@ already exist, then add a `<script>` tag in `index.html`.
 ├── <ImportModal>               (modals.jsx — paste JSON)
 ├── <StructureModal>            (modals.jsx — edit layers / bands)
 ├── <ImpactAdvisor>             (impact-advisor.jsx — news impact panel)
-├── <Toast>                     (primitives.jsx)
-└── <TweaksPanel>               (tweaks-panel.jsx — host-iframe protocol)
+└── <Toast>                     (primitives.jsx)
 ```
 
 ---
@@ -282,7 +280,7 @@ the `{result && (<>...</>)}` block.
 
 ## Pure helpers tested by Vitest
 
-These all live in `app.jsx` AND have an ESM mirror in `lib/exports.js`:
+The app and Vitest both use these helpers from `lib/exports.js`:
 
 | Helper | What it does |
 |--------|-------------|
@@ -294,9 +292,6 @@ These all live in `app.jsx` AND have an ESM mirror in `lib/exports.js`:
 | `buildSelectionCsv(state, picked)` | Bulk-export → CSV string |
 | `buildSelectionText(state, picked)` | Bulk-export → grouped Markdown-ish |
 | `formatGuidanceNote(entry, verdict)` | Format multi-expert advice into chip notes |
-
-If you change one of these in `app.jsx`, mirror the change in `lib/exports.js`
-or Vitest will silently lock the OLD behaviour.
 
 ---
 

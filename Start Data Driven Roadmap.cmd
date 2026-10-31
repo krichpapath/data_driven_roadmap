@@ -13,6 +13,6 @@ rem Port 8000 must stay the same: roadmaps are saved per browser address.
 start "" /b "%PY%" -m http.server 8000 --bind 127.0.0.1 --directory roadmap_builder >nul 2>&1
 ping -n 3 127.0.0.1 >nul
 start "" http://127.0.0.1:8000
-echo Roadmap Review is running at http://127.0.0.1:8000  -  close this window to stop it.
+echo Data Driven Roadmap is running at http://127.0.0.1:8000  -  close this window to stop it.
 "%PY%" src\api\roadmap_api.py
 pause
