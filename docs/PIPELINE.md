@@ -10,14 +10,13 @@ This doc walks each pipeline stage in detail.
 **Input:** URL or raw text.
 **Output:** `(title, body_text)` — both `str`.
 
-Four strategies, tried in order until one returns text ≥ 200 chars:
+Three parsers share one download and run in order until one returns at least 200 characters:
 
 1. `trafilatura` — best general purpose, multilingual.
-2. `newspaper3k` — strong on traditional news (BBC, Reuters).
-3. `readability-lxml` — Mozilla Readability port; HTML cleanup.
-4. `BeautifulSoup` — last-resort heuristic over `<p>` tags.
+2. `readability-lxml` — Mozilla Readability port; HTML cleanup.
+3. `BeautifulSoup` — last-resort heuristic over `<p>` tags.
 
-If all four fail but at least one returned partial text, the longest partial
+If none reaches 200 characters but at least one returned partial text, the longest partial
 wins. If everything is empty → `ValueError`.
 
 For raw-text input, `extract_text(raw)` just returns `("", raw.strip())`.

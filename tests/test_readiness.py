@@ -165,15 +165,15 @@ def test_all_extractors_reuse_one_download(monkeypatch):
     def fetch(url):
         downloads.append(url)
         return url, "cached html"
-    def parse(url, html):
+    def parse(html):
         parsed.append(html)
         return "", ""
     monkeypatch.setattr(extractor, "fetch_html", fetch)
-    for name in ("_extract_trafilatura", "_extract_newspaper", "_extract_readability", "_extract_bs4"):
+    for name in ("_extract_trafilatura", "_extract_readability", "_extract_bs4"):
         monkeypatch.setattr(extractor, name, parse)
     with pytest.raises(ValueError, match="No readable"):
         extractor.extract_article("https://example.com")
-    assert len(downloads) == 1 and parsed == ["cached html"] * 4
+    assert len(downloads) == 1 and parsed == ["cached html"] * 3
 
 
 def test_mixed_dns_and_late_eof_rejected(monkeypatch):
