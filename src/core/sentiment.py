@@ -1,5 +1,6 @@
 # sentiment.py — run sentiment on a sentence using the routed model
 
+from functools import lru_cache
 from typing import Dict
 
 from core.router import get_model_config, model_load_args
@@ -42,6 +43,7 @@ def sentiment_to_score(label: str) -> int:
     return _LABEL_TO_SCORE.get(label, 0)
 
 
+@lru_cache(maxsize=256)  # re-assessing a source repeats the same text; callers must not mutate the result
 def classify_sentiment(sentence: str, pestle_label: str) -> Dict:
     """
     Run the sentiment model routed for this PESTLE domain.

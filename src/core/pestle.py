@@ -9,6 +9,7 @@
 # positionally to the canonical one-word PESTLE label exposed to the rest of
 # the pipeline.
 
+from functools import lru_cache
 from typing import Dict
 from config import (
     PESTLE_MODEL,
@@ -16,12 +17,8 @@ from config import (
     PESTLE_LABEL_VERBALIZED,
     PESTLE_HYPOTHESIS_TEMPLATE,
     MODEL_REVISIONS,
+    PESTLE_MIN_CONFIDENCE,
 )
-
-try:
-    from config import PESTLE_MIN_CONFIDENCE
-except ImportError:
-    PESTLE_MIN_CONFIDENCE = 0.0
 
 UNCLASSIFIED_LABEL = "Unclassified"
 
@@ -47,6 +44,7 @@ def _get_classifier():
     return _classifier
 
 
+@lru_cache(maxsize=256)  # re-assessing a source repeats the same text; callers must not mutate the result
 def classify_pestle(sentence: str) -> Dict:
     """
     Classify one sentence into a PESTLE domain.

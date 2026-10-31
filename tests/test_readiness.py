@@ -222,6 +222,38 @@ def test_every_model_loads_in_float32(monkeypatch):
     assert [c["dtype"] for c in calls] == [torch.float32] * 3
 
 
+@pytest.mark.parametrize("available,free_gb,expected", [
+    (False, 0, "cpu"),
+    (True, 2, "cpu"),
+    (True, 4, "cuda"),
+])
+def test_device_needs_enough_free_gpu_memory(monkeypatch, available, free_gb, expected):
+    import torch
+    from core import router
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: available)
+    monkeypatch.setattr(torch.cuda, "mem_get_info", lambda: (free_gb * 1024**3, 8 * 1024**3))
+    monkeypatch.setattr(torch.cuda, "get_device_name", lambda _: "Test GPU")
+    router.select_device.cache_clear()
+    try:
+        assert router.select_device() == expected
+    finally:
+        router.select_device.cache_clear()
+
+
+def test_gpu_read_failure_falls_back_to_cpu(monkeypatch):
+    import torch
+    from core import router
+    def broken():
+        raise RuntimeError("driver")
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "mem_get_info", broken)
+    router.select_device.cache_clear()
+    try:
+        assert router.select_device() == "cpu"
+    finally:
+        router.select_device.cache_clear()
+
+
 def test_warm_up_loads_every_model_under_the_lock(monkeypatch):
     from core import keypoints
     from ui import app

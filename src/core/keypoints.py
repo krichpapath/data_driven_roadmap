@@ -2,9 +2,6 @@
 # raw PESTLE-similarity relevance, and context-window output.
 #
 # Public API:
-#     extract_keypoints(text, max_points)
-#         -> List[Tuple[sentence, relevance]]                  (legacy 2-tuple)
-#
 #     extract_keypoints_rich(text, max_points)
 #         -> List[Dict{ sentence, relevance, context, composite, position }]
 #
@@ -23,7 +20,7 @@
 # can overstate impact.
 
 import re
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 
 from config import KEYPOINTS_MIN, KEYPOINTS_MAX, PESTLE_LABELS, MODEL_REVISIONS
 
@@ -118,9 +115,10 @@ def _get_embedder():
     if "model" not in _model_cache:
         from sentence_transformers import SentenceTransformer
         from core.router import model_load_args
+        args = model_load_args()
         _model_cache["model"] = SentenceTransformer(
             KEYPOINTS_EMBED_MODEL, revision=MODEL_REVISIONS[KEYPOINTS_EMBED_MODEL], trust_remote_code=False,
-            model_kwargs={"dtype": model_load_args()["dtype"]},
+            device=args["device"], model_kwargs={"dtype": args["dtype"]},
         )
     return _model_cache["model"]
 
@@ -148,7 +146,9 @@ def _score_semantic(sentences: List[str]):
 
     sent_emb = _embed(sentences)
     centroid = sent_emb.mean(axis=0, keepdims=True)
-    label_emb = _embed(_RELEVANCE_ANCHORS)
+    if "anchors" not in _model_cache:
+        _model_cache["anchors"] = _embed(_RELEVANCE_ANCHORS)
+    label_emb = _model_cache["anchors"]
 
     sim_centroid = (sent_emb @ centroid.T).ravel()
     sim_labels = (sent_emb @ label_emb.T).max(axis=1)
@@ -249,15 +249,3 @@ def extract_keypoints_rich(
             "position":  i,
         })
     return out
-
-
-def extract_keypoints(text: str, max_points: int = KEYPOINTS_MAX) -> List[Tuple[str, float]]:
-    """
-    Legacy 2-tuple API. Kept for backwards compatibility.
-
-    NOTE: as of the A+B upgrade, `relevance` is the raw max-cosine to the
-    closest PESTLE label (driver-alignment confidence), not a rank-normalized
-    score. Multiple on-topic picks now carry meaningful weight.
-    """
-    rich = extract_keypoints_rich(text, max_points=max_points)
-    return [(item["sentence"], item["relevance"]) for item in rich]
