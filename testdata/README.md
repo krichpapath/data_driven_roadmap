@@ -14,6 +14,10 @@ Do not redistribute as real reporting.
 
 ## Files
 
+`baseline.json` contains the ten expected verdicts, four-decimal severity scores
+and SHA-256 hashes of the UTF-8 article text with LF line endings. Full run
+reports and machine-specific package lists stay outside the fixture.
+
 | File | Driver mix | Expected verdict |
 |------|-----------|------------------|
 | `maintain_01_routine_industry_briefing.txt` | Economic, Technological, Legal | Maintain |
@@ -35,9 +39,7 @@ testing roadmap matching and guidance. Paste it into the app's optional
 
 ## How to use
 
-1. Open the keypoints lab: `python src/ui/keypoints_lab.py`. Paste a file's
-   contents into "Text" mode to inspect picks, relevance, and context.
-2. Open the main app: `python src/ui/gradio_app.py`. Paste the same text and
-   compare per-driver SKD, STRM severity, and verdict.
-3. If a verdict drifts (Maintain when Adjust expected, etc.), tune
+1. Run `python tools/diagnose_impact.py testdata/<file>.txt` to inspect picks,
+   relevance, context, per-driver SKD, STRM severity, and verdict.
+2. If a verdict drifts (Maintain when Adjust expected, etc.), tune
    `TOLERANCE_BANDS` or `DDRM_THRESHOLDS` in `src/config.py`.

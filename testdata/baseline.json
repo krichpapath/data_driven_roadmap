@@ -1,0 +1,54 @@
+{
+  "scenarios": {
+    "adjust_01_chip_export_controls.txt": {
+      "sha256": "c2d06239cf27d74c46cc7e7b981bd654a993129f88cd9fbbe90b426704e05b8f",
+      "verdict": "Adjust",
+      "severity_4dp": "0.5000"
+    },
+    "adjust_02_genai_asean_surge.txt": {
+      "sha256": "01fd4fb67c2ef847d2eb4d2c62715aede195b4e7eff658beda4d3aa1e5276821",
+      "verdict": "Adjust",
+      "severity_4dp": "0.4170"
+    },
+    "adjust_03_data_center_pdpa.txt": {
+      "sha256": "e3e70b976a1c29920f25af6b797c9d17c8b787e12955f0929a6404a7b933a404",
+      "verdict": "Adjust",
+      "severity_4dp": "0.5000"
+    },
+    "adjust_04_industry_ai_sandbox.txt": {
+      "sha256": "114af594424ab3de55b7c56b371eba0c34723cb6abfc64e93ba45a37f5e7941d",
+      "verdict": "Adjust",
+      "severity_4dp": "0.4066"
+    },
+    "maintain_01_routine_industry_briefing.txt": {
+      "sha256": "49c0c0605494fff1edd3493f18183a971018c1b2d95809ae37f814502f21062c",
+      "verdict": "Maintain",
+      "severity_4dp": "0.0000"
+    },
+    "maintain_02_thai_genai_pilot.txt": {
+      "sha256": "a61ec806bd41d8db553833f0a4cfce786d81e7ec0be443eef14ec2291a71ddcf",
+      "verdict": "Maintain",
+      "severity_4dp": "0.2947"
+    },
+    "maintain_03_clmv_data_workshop.txt": {
+      "sha256": "08dd10ca87bdb4398d96caba1c61194d8694b63ab8df92ffaec422680f070886",
+      "verdict": "Maintain",
+      "severity_4dp": "0.2562"
+    },
+    "revise_01_multi_crisis_pdpa_penalties.txt": {
+      "sha256": "960ab0d8bf158e975a2182a1cd10725df2eae9d65f42b097df6d72a5a78b8252",
+      "verdict": "Revise",
+      "severity_4dp": "0.7941"
+    },
+    "revise_02_sweeping_digital_mandate.txt": {
+      "sha256": "7a65fa737b0709cb669aea782de01835a9a61ae9f690f1c908dcbaf605a7c3ef",
+      "verdict": "Revise",
+      "severity_4dp": "0.7143"
+    },
+    "revise_03_foreign_ai_investment_rules.txt": {
+      "sha256": "d38e8779133e16962661ba74e497ba54d812ad6ed850285da62a6157a715672d",
+      "verdict": "Revise",
+      "severity_4dp": "0.7077"
+    }
+  }
+}

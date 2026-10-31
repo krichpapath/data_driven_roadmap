@@ -9,7 +9,7 @@ API = "http://127.0.0.1:7875/api/recommend"
 MAX_POINTS = int(sys.argv[1]) if len(sys.argv) > 1 else 7   # config.KEYPOINTS_MAX
 DATA = pathlib.Path(__file__).resolve().parents[1] / "testdata"
 roadmap = json.loads((DATA / "industrial_digital_roadmap_sample.json").read_text(encoding="utf-8"))
-baseline = json.loads((DATA.parent / "docs/readiness/baseline.json").read_text(encoding="utf-8"))["scenarios"]
+baseline = json.loads((DATA / "baseline.json").read_text(encoding="utf-8"))["scenarios"]
 results = {}
 paths = sorted(DATA.glob("*.txt"))
 if len(paths) != 10 or {p.name for p in paths} != set(baseline):
