@@ -12,7 +12,7 @@ def event(n, **extra):
 
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(history_store, "DB_PATH", tmp_path / "history.sqlite3")
-    return TestClient(roadmap_api.app)
+    return TestClient(roadmap_api.app, base_url="http://127.0.0.1")
 
 
 def test_history_is_durable_idempotent_and_unbounded(tmp_path, monkeypatch):

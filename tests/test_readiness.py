@@ -1,4 +1,5 @@
 """Phase 1 regressions; no model downloads or hosted requests."""
+import json
 import socket
 import sys
 from types import SimpleNamespace
@@ -66,7 +67,7 @@ def test_single_guidance_selection(monkeypatch):
 @pytest.mark.parametrize("model", guidance.GUIDANCE_MODELS)
 def test_api_controls_and_errors(monkeypatch, model):
     from fastapi.testclient import TestClient
-    client = TestClient(roadmap_api.app)
+    client = TestClient(roadmap_api.app, base_url="http://127.0.0.1")
     seen = []
     def pipeline(**kwargs):
         seen.append(kwargs)
@@ -279,19 +280,19 @@ def test_simultaneous_assessments_are_serialized(monkeypatch):
     from ui import app
     start = threading.Barrier(2)
     active = []
-    def pipeline(*args):
+    def score(*args):
         assert not active, "Model initialization raced another assessment"
         active.append(True)
         time.sleep(.05)
         active.pop()
-        return {"verdict": "Maintain"}
-    monkeypatch.setattr(app, "_run_pipeline", pipeline)
+        return []
+    monkeypatch.setattr(app, "_score_evidence", score)
     def assess():
         start.wait(timeout=2)
-        return app.run_pipeline("News", "Text", None, 7)
+        return app.run_pipeline("News", "Text", 7)["verdict"]
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(lambda _: assess(), range(2)))
-    assert results == [{"verdict": "Maintain"}] * 2
+    assert results == ["Maintain"] * 2
 
 
 @pytest.mark.parametrize("encoding", ["gzip", "deflate"])
@@ -317,3 +318,60 @@ def test_gzip_bomb_is_capped():
 def test_ipv4_is_preferred(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", lambda *a, **kw: [(None, None, None, None, ("2606:2800:220:1::", 443)), (None, None, None, None, ("93.184.216.34", 443))])
     assert url_fetch._resolve("example.com", 443, 1) == "93.184.216.34"
+
+
+def _api():
+    from fastapi.testclient import TestClient
+    return TestClient(roadmap_api.app, base_url="http://127.0.0.1")
+
+
+@pytest.mark.parametrize("roadmap", [
+    {"categories": [], "bands": [], "items": "x"},
+    {"categories": [], "bands": [], "items": [1, 2]},
+    {"categories": None, "bands": None, "items": None},
+    {"categories": [], "bands": [], "items": [{"pestle": 5}]},
+])
+def test_malformed_roadmaps_are_rejected(roadmap):
+    r = _api().post("/api/recommend", json={"input_text": "News", "roadmap": roadmap})
+    assert r.status_code == 400
+
+
+@pytest.mark.parametrize("text", ["รัฐบาลประกาศนโยบายใหม่ " * 20, "政府は新しい方針を発表した。" * 20])
+def test_non_latin_text_is_rejected_before_scoring(text):
+    r = _api().post("/api/recommend", json={"input_text": text, "roadmap": {"categories": [], "bands": [], "items": []}})
+    assert r.status_code == 400 and "English" in r.json()["detail"]
+
+
+def test_english_with_a_foreign_quote_is_accepted():
+    from ui import app
+    app._require_english_script("The ministry said the new rule, called กฎหมาย, starts in January next year.")
+
+
+def test_foreign_host_and_origin_are_refused():
+    assert _api().get("/api/health", headers={"Host": "evil.example"}).status_code == 400
+    r = _api().get("/api/health", headers={"Origin": "http://localhost:9999"})
+    assert "access-control-allow-origin" not in r.headers
+
+
+def test_oversized_body_is_refused():
+    r = _api().post("/api/extract", content=b"x", headers={"Content-Length": str(roadmap_api.MAX_BODY_BYTES + 1)})
+    assert r.status_code == 413
+
+
+def test_bad_history_timestamp_is_refused():
+    r = _api().post("/api/history/r1/events", json={"events": [{"event_id": "e1", "timestamp": "not-a-date-at-all"}]})
+    assert r.status_code == 422
+
+
+def test_hosted_advice_runs_outside_the_scoring_lock(monkeypatch):
+    from ui import app
+    seen = []
+    monkeypatch.setattr(app, "_score_evidence", lambda *a: [])
+    monkeypatch.setattr(app, "generate_guidance", lambda *a, **kw: seen.append(app._PIPELINE_LOCK.locked()) or {})
+    app.run_pipeline("News", "Text", 7, json.dumps({"categories": [], "bands": [], "items": []}), use_expert_workshop=False)
+    assert seen == [False]
+
+
+def test_health_reports_model_state():
+    assert _api().get("/api/health").json()["status"] == "ok"
+    assert "models" in _api().get("/api/health").json()

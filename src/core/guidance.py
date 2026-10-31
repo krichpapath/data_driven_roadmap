@@ -144,7 +144,7 @@ def external_ai_enabled(allowed: bool) -> bool:
     if not allowed:
         return False
     _load_dotenv()
-    return os.getenv("DDRM_EXTERNAL_AI", "on").strip().lower() not in {"off", "false", "0", "no"}
+    return os.getenv("DDRM_EXTERNAL_AI", "off").strip().lower() not in {"off", "false", "0", "no"}
 
 
 def guidance_request_options(model: str) -> Dict:

@@ -41,7 +41,7 @@ def main():
     failures = []
     for path in paths:
         # No roadmap means no guidance path, including on the original application.
-        result = run_pipeline(path.read_text(encoding="utf-8"), "Text", None, 7, roadmap_json="", use_expert_workshop=False)
+        result = run_pipeline(path.read_text(encoding="utf-8"), "Text", 7, roadmap_json="", use_expert_workshop=False)
         row = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "verdict": result["verdict"],
                "severity_4dp": f"{result['severity']:.4f}", "result": result}
         report["scenarios"][path.name] = row

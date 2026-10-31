@@ -9,7 +9,7 @@ def test_source_reference_round_trip(monkeypatch):
         return {"severity": .5}
     monkeypatch.setattr(roadmap_api, "run_pipeline", pipeline)
     ref = {"id": "japanese-source", "revision": 3, "name": "Report"}
-    with TestClient(roadmap_api.app) as client:
+    with TestClient(roadmap_api.app, base_url="http://127.0.0.1") as client:
         response = client.post('/api/recommend', json={"input_text": "Reviewed English translation", "roadmap": {}, "source_ref": ref})
         assert response.json()['result']['source_ref'] == ref
         assert seen[0]['input_text'] == 'Reviewed English translation'
@@ -23,7 +23,7 @@ def test_extract_uses_existing_safe_extractor(monkeypatch):
         seen.append(url)
         return '日本語', '記事の本文'
     monkeypatch.setattr(roadmap_api, 'extract_article', extract)
-    with TestClient(roadmap_api.app) as client:
+    with TestClient(roadmap_api.app, base_url="http://127.0.0.1") as client:
         response = client.post('/api/extract', json={'url': 'https://example.org/article'})
         assert response.json()['text'] == '記事の本文'
         assert seen == ['https://example.org/article']
@@ -37,7 +37,7 @@ def test_extraction_failure_is_not_success(monkeypatch):
     def fail(url):
         raise RuntimeError('unreachable')
     monkeypatch.setattr(roadmap_api, 'extract_article', fail)
-    with TestClient(roadmap_api.app) as client:
+    with TestClient(roadmap_api.app, base_url="http://127.0.0.1") as client:
         response = client.post('/api/extract', json={'url': 'https://example.org/'})
         assert response.status_code == 502
         assert 'text' not in response.json()
