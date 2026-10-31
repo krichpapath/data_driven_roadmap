@@ -26,6 +26,10 @@ import sys
 import json
 from pathlib import Path
 
+# This tool prints ≥, ─ and box-drawing glyphs. Windows consoles default to
+# cp1252, which cannot encode them and raises UnicodeEncodeError mid-report.
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 # Make `src/` importable.
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))

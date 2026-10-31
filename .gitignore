@@ -1,21 +1,13 @@
 # =============================================================================
 # .gitignore for the Roadmapping repo
 # =============================================================================
-# Strategy: track code + assets + README + requirements at the repo root.
-# Research papers, university reports, runtime logs, virtual envs, large
-# binaries, and stale code snapshots stay LOCAL ONLY.
+# Track active code. Documentation and archived research stay local.
 # =============================================================================
 
 # --- Local-only folders -----------------------------------------------------
-# Internal university reports, drafts, .tex sources, templates
-docs/
-document/
-
-# Third-party research papers (copyright concerns)
-references/
-
-# Stale code snapshots from before the cleanup
-archive/
+# Local handbook, verification reports, and retired research.
+/docs/
+/archive/
 
 # Runtime output (may contain personal data)
 logs/
@@ -35,6 +27,7 @@ tools/diagnostic_output/
 # --- Python virtual environments --------------------------------------------
 venv/
 .venv/
+.venv-*/
 env/
 ENV/
 
@@ -51,6 +44,7 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+coverage/
 
 # Packaging
 build/
@@ -96,6 +90,10 @@ secrets.toml
 .claude/
 **/.claude/
 
+# Private learning profiles and session notes; keep these on this machine.
+.vibe-wise/
+.sensible-vibes/
+
 # --- OS junk ----------------------------------------------------------------
 .DS_Store
 Thumbs.db
@@ -118,3 +116,19 @@ $RECYCLE.BIN/
 reorganize.ps1
 REORGANIZATION_PLAN.md
 GIT_PUSH_GUIDE.md
+
+# --- Personal scratch ------------------------------------------------------
+FUTUREPLAN.md
+
+# --- Frontend (Vitest) ------------------------------------------------------
+# node_modules is huge and reproducible from package.json + package-lock.json.
+# Lock file IS tracked so test versions stay pinned across machines.
+node_modules/
+**/node_modules/
+
+# --- MkDocs build output ---------------------------------------------------
+# The docs site is generated from the local docs/ folder by `mkdocs build`.
+site/
+
+# Durable roadmap history (src/api/history_store.py)
+/data/

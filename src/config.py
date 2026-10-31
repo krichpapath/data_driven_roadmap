@@ -141,7 +141,8 @@ KEYPOINTS_MIN = 3
 KEYPOINTS_MAX = 7
 
 # Semantic extractor (sentence-transformers + MMR + PESTLE prior).
-# Falls back to TF-IDF if sentence-transformers is unavailable.
+# Requires the semantic model; unavailable models raise an error rather than
+# substituting TF-IDF relevance, which is not calibrated for impact scoring.
 KEYPOINTS_EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 KEYPOINTS_ALPHA       = 0.5   # weight: similarity to document centroid (informativeness)
 KEYPOINTS_BETA        = 0.4   # weight: max similarity to PESTLE labels (driver relevance)
@@ -157,11 +158,9 @@ KEYPOINTS_CONTEXT_WINDOW = 1
 
 # Relevance gain — multiplicative rescale applied to the raw cosine similarity
 # returned by `extract_keypoints_rich` before it enters the DDRM magnitude
-# formula M = |d| · c · r. Diagnostic showed raw cosine values cluster in
-# [0.15, 0.45] for in-domain news (PESTLE labels are single words, sentence
-# embeddings are dense), capping magnitude near 0.30 even at confidence ≈ 1.0.
-# A gain of 2.0 (clipped to 1.0) maps 0.25 → 0.50, 0.40 → 0.80, lifting
-# magnitudes into the τ_low..τ_high band where Step 2 produces meaningful x_ij.
+# formula M = |d| · c · r. Relevance uses verbalized PESTLE anchors. The current
+# gain of 1.4 maps cosine 0.25 → 0.35 and 0.40 → 0.56 before clipping at 1.0.
+# Recheck the labelled scenarios when changing this calibration value.
 # Engineering knob — does NOT modify the formula chain.
 KEYPOINTS_RELEVANCE_GAIN = 1.4
 
@@ -204,3 +203,21 @@ DDRM_THRESHOLDS = {
     "adjust": 0.35,   # Maintain below this
     "revise": 0.65,   # Revise at or above this
 }
+
+# Phase 1 keeps the existing English weights. Revisions make downloads reproducible.
+MODEL_REVISIONS = {
+    "MoritzLaurer/deberta-v3-base-zeroshot-v2.0": "8e7e5af5983a0ddb1a5b45a38b129ab69e2258e8",
+    "sentence-transformers/all-MiniLM-L6-v2": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
+    "siebert/sentiment-roberta-large-english": "74cea614e245b0832c770ec9aa51bd58df965b9c",
+    "ProsusAI/finbert": "4556d13015211d73dccd3fdd39d39232506f3e43",
+    "climatebert/distilroberta-base-climate-sentiment": "e9f9a94ee4263f5ad5cfc97b8539a497fc88aa7d",
+}
+
+# Hosted guidance is opt-in per request; these are provider-qualified IDs.
+GUIDANCE_MODELS = (
+    "openai/gpt-6-luna",
+    "openai/gpt-6.1-sol",
+    "anthropic/claude-sonnet-5.5",
+    "anthropic/claude-haiku-5.5",
+    "qwen/qwen3.7-plus",
+)

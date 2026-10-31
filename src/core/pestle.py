@@ -9,18 +9,16 @@
 # positionally to the canonical one-word PESTLE label exposed to the rest of
 # the pipeline.
 
+from functools import lru_cache
 from typing import Dict
 from config import (
     PESTLE_MODEL,
     PESTLE_LABELS,
     PESTLE_LABEL_VERBALIZED,
     PESTLE_HYPOTHESIS_TEMPLATE,
+    MODEL_REVISIONS,
+    PESTLE_MIN_CONFIDENCE,
 )
-
-try:
-    from config import PESTLE_MIN_CONFIDENCE
-except ImportError:
-    PESTLE_MIN_CONFIDENCE = 0.0
 
 UNCLASSIFIED_LABEL = "Unclassified"
 
@@ -33,15 +31,20 @@ _VERBALIZED_TO_LABEL = dict(zip(PESTLE_LABEL_VERBALIZED, PESTLE_LABELS))
 def _get_classifier():
     global _classifier
     if _classifier is None:
-        from transformers import pipeline
-        _classifier = pipeline(
-            "zero-shot-classification",
-            model=PESTLE_MODEL,
-            device=-1,          # CPU; set to 0 for GPU
-        )
+        try:
+            from transformers import pipeline
+            from core.router import model_load_args
+            _classifier = pipeline(
+                "zero-shot-classification", model=PESTLE_MODEL,
+                revision=MODEL_REVISIONS[PESTLE_MODEL], trust_remote_code=False,
+                **model_load_args(),
+            )
+        except Exception as exc:
+            raise RuntimeError(f"PESTLE model unavailable: {PESTLE_MODEL}. Download the pinned revision and restart the API.") from exc
     return _classifier
 
 
+@lru_cache(maxsize=256)  # re-assessing a source repeats the same text; callers must not mutate the result
 def classify_pestle(sentence: str) -> Dict:
     """
     Classify one sentence into a PESTLE domain.
@@ -59,6 +62,7 @@ def classify_pestle(sentence: str) -> Dict:
         PESTLE_LABEL_VERBALIZED,
         hypothesis_template=PESTLE_HYPOTHESIS_TEMPLATE,
         multi_label=False,
+        batch_size=len(PESTLE_LABEL_VERBALIZED),  # one forward pass for all six hypotheses
     )
 
     # out["labels"] / out["scores"] sorted highest→lowest, but contain

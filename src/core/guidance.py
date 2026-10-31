@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import concurrent.futures
 import json
+import logging
 import os
+import re
 from typing import Dict, List, Optional
 
 import requests
+from config import GUIDANCE_MODELS
 
 
 ACTION_BY_VERDICT = {
@@ -33,9 +36,8 @@ ACTION_BY_VERDICT = {
 }
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini"
+DEFAULT_OPENROUTER_MODEL = GUIDANCE_MODELS[0]
 DEFAULT_LLM_TIMEOUT_S = 45
-LLM_TEMPERATURE = 0.2
 HTTP_REFERER = "http://127.0.0.1:7860"
 
 def build_guidance_schema(keypoint_ids: List[str]) -> Dict:
@@ -124,7 +126,36 @@ def _openrouter_key() -> str:
 
 def _openrouter_model() -> str:
     _load_dotenv()
-    return os.getenv("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL
+    model = os.getenv("OPENROUTER_MODEL") or DEFAULT_OPENROUTER_MODEL
+    if model in {"openai/gpt-4o-mini", "openai/gpt-4o"}:
+        logging.getLogger(__name__).warning("Legacy OPENROUTER_MODEL migrated to %s", DEFAULT_OPENROUTER_MODEL)
+        return DEFAULT_OPENROUTER_MODEL
+    return model
+
+
+def resolve_guidance_model(model: str | None = None) -> str:
+    selected = model or _openrouter_model()
+    if selected not in GUIDANCE_MODELS:
+        raise ValueError("Unsupported guidance model. Choose one of: " + ", ".join(GUIDANCE_MODELS))
+    return selected
+
+
+def external_ai_enabled(allowed: bool) -> bool:
+    if not allowed:
+        return False
+    _load_dotenv()
+    return os.getenv("DDRM_EXTERNAL_AI", "off").strip().lower() not in {"off", "false", "0", "no"}
+
+
+def guidance_request_options(model: str) -> Dict:
+    """Bounded, catalog-compatible options; mandatory reasoning shares output budget."""
+    resolve_guidance_model(model)
+    mandatory_reasoning = model in {"openai/gpt-6.1-sol", "anthropic/claude-sonnet-5.5"}
+    reasoning = {"effort": "low" if mandatory_reasoning else "none", "exclude": True}
+    if model == "qwen/qwen3.7-plus":
+        reasoning = {"enabled": False}  # Qwen advertises a toggle, not effort levels.
+    return {"max_tokens": 4096 if mandatory_reasoning else 2048,
+            "reasoning": reasoning, "provider": {"require_parameters": True}}
 
 
 def _post_openrouter(
@@ -153,7 +184,7 @@ def _post_openrouter(
         },
         json={
             "model": model,
-            "temperature": LLM_TEMPERATURE,
+            **guidance_request_options(model),
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content},
@@ -171,7 +202,13 @@ def _post_openrouter(
     )
     response.raise_for_status()
     data = response.json()
-    parsed = json.loads(data["choices"][0]["message"]["content"])
+    choice = data["choices"][0]
+    if choice.get("finish_reason") == "length":
+        raise ValueError("Guidance model reached its token limit. Try a shorter request or another model.")
+    content = choice["message"].get("content")
+    if not content:
+        raise ValueError("Guidance model returned no advice. Try another model.")
+    parsed = json.loads(content)
     return {"parsed": parsed, "model": data.get("model") or model}
 
 
@@ -266,12 +303,16 @@ def _validate_guidance(raw: Dict, fallback: Dict) -> Dict:
     return raw
 
 
-def generate_openrouter_guidance(impact_result: Dict, matches: List[Dict], fallback: Dict) -> Dict:
-    api_key = _openrouter_key()
-    if not api_key or not matches:
+def generate_openrouter_guidance(impact_result: Dict, matches: List[Dict], fallback: Dict, *, llm_model: str | None = None, allow_external_ai: bool = False) -> Dict:
+    if not external_ai_enabled(allow_external_ai):
         return fallback
-
-    model = _openrouter_model()
+    model = resolve_guidance_model(llm_model)
+    api_key = _openrouter_key()
+    if not matches:
+        return fallback
+    if not api_key:
+        fallback["llm_error"] = "Hosted guidance is enabled but OPENROUTER_API_KEY is not configured. Showing deterministic advice."
+        return fallback
     prompt = build_llm_prompt(impact_result, matches)
     payload = _compact_payload(impact_result, matches)
     keypoint_ids = [e.get("id") for e in impact_result.get("evidence", []) if e.get("id")]
@@ -300,7 +341,7 @@ def generate_openrouter_guidance(impact_result: Dict, matches: List[Dict], fallb
     return guidance
 
 
-def generate_guidance(impact_result: Dict, matches: List[Dict]) -> Dict:
+def generate_guidance(impact_result: Dict, matches: List[Dict], *, llm_model: str | None = None, allow_external_ai: bool = False) -> Dict:
     """Generate offline guidance from fixed verdict + deterministic matches."""
     verdict = impact_result.get("verdict", "Maintain")
     severity = float(impact_result.get("severity", 0.0) or 0.0)
@@ -370,7 +411,7 @@ def generate_guidance(impact_result: Dict, matches: List[Dict]) -> Dict:
     }
 
     try:
-        return generate_openrouter_guidance(impact_result, matches, fallback)
+        return generate_openrouter_guidance(impact_result, matches, fallback, llm_model=llm_model, allow_external_ai=allow_external_ai)
     except Exception as exc:
         fallback["llm_error"] = str(exc)
         return fallback
@@ -448,7 +489,7 @@ def _build_expert_prompt(role: str, role_keypoints: List[Dict], role_matches: Li
 
     return f"""You are the {role} expert in a strategic roadmap risk-review workshop.
 Your scope: {role_focus}.
-Stay strictly within your domain — do not opine on other PESTLE dimensions.
+Stay strictly within your domain. Do not opine on other PESTLE dimensions.
 The DDRM verdict ({verdict}, severity {severity:.2f}) is fixed; do not recompute.
 
 Evidence in your domain (keypoints classified as {role}):
@@ -458,8 +499,9 @@ Roadmap items in your lane (tagged with {role}):
 {item_lines}
 
 For each item above, give one focused {role}-specific recommendation.
-The DDRM verdict ({verdict}) is the fixed action — do not pick your own action label.
-- advice: 1–2 sentences, concrete, actionable, tied to the {role} evidence. Justify why the fixed verdict applies through this {role} lens.
+The DDRM verdict ({verdict}) is the fixed action. Do not pick your own action label.
+Write short plain sentences. Never use em dashes.
+- advice: 1–2 sentences, concrete, actionable, tied to the {role} evidence. Explain why the {verdict} verdict applies through this {role} lens. Write for roadmap owners: do not mention that the verdict is fixed, given or calculated.
 - evidence_keypoint_id: ID of the single keypoint above (e.g. "K3") that most justifies this advice. Must match an ID listed above exactly.
 - expert_summary: 1 sentence overall {role}-lens take on the news
 Return JSON only.
@@ -500,9 +542,14 @@ def _validate_expert_response(raw: Dict, role: str) -> Dict:
     if not isinstance(advices, list):
         raise ValueError(f"{role} expert response missing 'item_advices' list.")
     return {
-        "expert_summary": str(raw.get("expert_summary") or ""),
+        "expert_summary": _plain_text(raw.get("expert_summary")),
         "item_advices": advices,
     }
+
+
+def _plain_text(value) -> str:
+    """Model text shown in the UI: the interface style uses no em dashes, so turn any into a comma."""
+    return re.sub(r"\s*—\s*", ", ", str(value or ""))
 
 
 def _call_expert(role: str, role_keypoints: List[Dict], role_matches: List[Dict],
@@ -526,7 +573,9 @@ def _call_expert(role: str, role_keypoints: List[Dict], role_matches: List[Dict]
         title=f"DDRM {role} Expert",
         timeout=timeout,
     )
-    return _validate_expert_response(response["parsed"], role)
+    result = _validate_expert_response(response["parsed"], role)
+    result["llm_model"] = response["model"]
+    return result
 
 
 def _resolve_keypoint(kp_id: str, evidence_by_id: Dict[str, Dict]) -> Optional[Dict]:
@@ -581,7 +630,7 @@ def _merge_expert_results(per_expert: Dict[str, Dict], matches: List[Dict], verd
             by_id[item_id]["advices"].append({
                 "role": role,
                 "action": verdict,
-                "advice": entry.get("advice", ""),
+                "advice": _plain_text(entry.get("advice")),
                 "evidence_keypoint": kp,
             })
 
@@ -618,11 +667,14 @@ def _flatten_for_legacy(expert_advices: Dict[str, Dict], policy_action: str) -> 
     return out
 
 
-def generate_expert_guidance(impact_result: Dict, roadmap: Dict, matches: List[Dict]) -> Dict:
+def generate_expert_guidance(impact_result: Dict, roadmap: Dict, matches: List[Dict], *, llm_model: str | None = None, allow_external_ai: bool = False) -> Dict:
     """Run a parallel per-PESTLE-expert workshop and merge into per-item advice.
 
     Falls back to deterministic guidance if no API key, no matches, or no active drivers.
     """
+    if not external_ai_enabled(allow_external_ai):
+        return generate_guidance(impact_result, matches)
+    model = resolve_guidance_model(llm_model)
     verdict = impact_result.get("verdict", "Maintain")
     severity = float(impact_result.get("severity", 0.0) or 0.0)
     policy = ACTION_BY_VERDICT.get(verdict, ACTION_BY_VERDICT["Maintain"])
@@ -634,7 +686,10 @@ def generate_expert_guidance(impact_result: Dict, roadmap: Dict, matches: List[D
     api_key = _openrouter_key()
     if not api_key or not matches:
         # No API or nothing to advise on — use deterministic.
-        return generate_guidance(impact_result, matches)
+        fallback = generate_guidance(impact_result, matches)
+        if matches and not api_key:
+            fallback["llm_error"] = "Hosted guidance is enabled but OPENROUTER_API_KEY is not configured. Showing deterministic advice."
+        return fallback
 
     by_pestle = impact_result.get("by_pestle") or {}
     active_roles = [
@@ -646,8 +701,6 @@ def generate_expert_guidance(impact_result: Dict, roadmap: Dict, matches: List[D
 
     if not active_roles:
         return generate_guidance(impact_result, matches)
-
-    model = _openrouter_model()
 
     per_expert: Dict[str, Dict] = {}
     expert_errors: Dict[str, str] = {}
@@ -702,7 +755,8 @@ def generate_expert_guidance(impact_result: Dict, roadmap: Dict, matches: List[D
             "Should timing move earlier, later, or stay unchanged?",
         ],
         "llm_provider": "openrouter",
-        "llm_model": model,
+        "llm_model": ", ".join(sorted({r["llm_model"] for r in per_expert.values()})),
+        "llm_requested_model": model,
         "mode": "expert_workshop",
     }
     if expert_errors:

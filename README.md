@@ -1,171 +1,176 @@
-# Drivers & Trends Impact Assessment (DDRM Pipeline)
+# Data Driven Roadmap
 
-A data-driven roadmapping tool that analyzes external trends and documents to produce governance-ready roadmap status recommendations.
+Build a technology roadmap, add news articles and reports, and see how they
+affect it. For each source the app answers **Maintain**, **Adjust** or
+**Revise**, shows the sentences behind that answer, and suggests which roadmap
+items to review. The final decision is always yours.
 
-## Overview
+## What you need
 
-This project implements an operational **Data-Driven Roadmapping (DDRM)** workflow that:
+- A Windows 10 or 11 computer (the tested setup).
+- **Python 3.14** from [python.org](https://www.python.org/downloads/). During
+  installation, tick **Add python.exe to PATH**.
+- **Node.js 24** (LTS) from [nodejs.org](https://nodejs.org/).
+- Internet access and several GB of free disk space. The first run downloads
+  the AI models, and the web page loads React from the internet each time.
+- At least 8 GB of RAM (the models use about 3.5 GB). No graphics card needed.
 
-1. Extracts content from URLs or raw text
-2. Identifies key points using TF-IDF relevance scoring
-3. Classifies each point into **PESTLE** domains (Political, Economic, Social, Technological, Legal, Environmental)
-4. Routes to domain-specific sentiment models
-5. Computes multi-criteria impact scores
-6. Outputs a **Maintain / Adjust / Revise** recommendation with traceable evidence
+## Install (once)
 
-## Project Structure
+1. Open the project folder in File Explorer.
+2. Click the address bar, type `powershell` and press **Enter**. A blue window
+   opens in this folder.
+3. Copy **one** of the two blocks below into it, press **Enter** and wait
+   until it finishes (about 10 minutes).
 
-```
-.
-├── src/
-│   ├── config.py              # Central configuration (models, weights, thresholds)
-│   ├── api/
-│   │   └── roadmap_api.py     # FastAPI advisor (impact scoring + guidance)
-│   ├── core/                  # Pipeline modules
-│   │   ├── extractor.py       # Web scraping & text extraction
-│   │   ├── keypoints.py       # Key-point extraction
-│   │   ├── pestle.py          # Zero-shot PESTLE classification
-│   │   ├── router.py          # Model routing by PESTLE domain
-│   │   ├── sentiment.py       # Domain-specific sentiment analysis
-│   │   ├── impact.py          # DDRM impact scoring & aggregation
-│   │   ├── roadmap_matcher.py # Match drivers to roadmap items
-│   │   └── guidance.py        # OpenRouter guidance generator
-│   ├── models/                # Reserved for fine-tuned models
-│   └── ui/
-│       ├── app.py             # Gradio web interface
-│       └── keypoints_lab.py   # Key-point tuning lab
-├── roadmap_builder/           # Browser-based roadmap builder UI
-│   ├── index.html
-│   ├── app.jsx
-│   ├── data.jsx
-│   ├── modals.jsx
-│   ├── impact-advisor.jsx
-│   ├── roadmap-grid.jsx
-│   ├── start-screen.jsx
-│   ├── tweaks-panel.jsx
-│   ├── coach-rail.jsx
-│   ├── primitives.jsx
-│   └── styles.css
-├── testdata/                  # Sample roadmaps + news fixtures
-├── tools/                     # Diagnostic scripts
-│   └── diagnose_impact.py
-├── CHANGELOG.md
-├── IMPACT_VALUES_GUIDE.md
-├── requirements.txt
-└── README.md
-```
+   **A. Any computer (CPU):**
 
-## Installation
+   ```powershell
+   python -m venv .venv-cpu
+   .\.venv-cpu\Scripts\python.exe -m pip install -r requirements.lock
+   cd roadmap_builder; npm.cmd ci; cd ..
+   ```
 
-```bash
-# Create virtual environment (optional but recommended)
-python -m venv venv
-venv\Scripts\activate  # Windows
-# or: source venv/bin/activate  # Linux/Mac
+   **B. Computer with an NVIDIA graphics card (GPU: usually under 1 s per
+   source instead of 5–25 s, same results):**
 
-# Install dependencies
-pip install -r requirements.txt
+   ```powershell
+   python -m venv .venv-gpu
+   .\.venv-gpu\Scripts\python.exe -m pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cu130
+   .\.venv-gpu\Scripts\python.exe -m pip install -r requirements.lock
+   cd roadmap_builder; npm.cmd ci; cd ..
+   ```
+
+   You can install both. They live in the folders `.venv-cpu` and `.venv-gpu`.
+
+   The app picks the hardware itself when it starts and prints its choice. It
+   uses the GPU only if at least 4 GB of graphics memory is free, otherwise the
+   CPU. Results are the same either way. To force the CPU, run
+   `$env:CUDA_VISIBLE_DEVICES="-1"` before starting the service.
+
+## Start the app (every time)
+
+Double-click **`Start Data Driven Roadmap.cmd`** in the project folder. It starts both
+parts in one window (using `.venv-gpu` if installed, else `.venv-cpu`) and opens
+<http://127.0.0.1:8000>. Close that window to stop the app.
+
+To start the parts by hand instead, open **two** PowerShell windows in the
+project folder (steps 1–2 above).
+
+**Window 1: the analysis service.** Leave it open.
+
+```powershell
+.\.venv-cpu\Scripts\python.exe src\api\roadmap_api.py
 ```
 
-## Usage
+With the GPU version (B), use `.\.venv-gpu\Scripts\python.exe` instead.
 
-### Run the Web UI
+**Window 2: the web page.** Leave it open.
 
-```bash
-python src/ui/app.py
+```powershell
+python -m http.server 8000 --bind 127.0.0.1 --directory roadmap_builder
 ```
 
-Then open the URL shown in your terminal (typically `http://127.0.0.1:7860`).
+Then open **<http://127.0.0.1:8000>** in your browser. To stop the app, close
+both windows.
 
-### Run the Integrated Roadmap Builder + Advisor
+## Use it
 
-Start the advisor API:
+1. **Create a roadmap.** Click **New roadmap** and pick a template, for
+   example **Industrial Digital**, or choose **Blank canvas**.
+2. **Add sources.** Open the **Sources** tab. Add files (PDF, image, TXT), web
+   addresses or pasted text. Read the extracted text, fix any errors, tick
+   **I reviewed this extracted text** and click **Save revision**. For Thai,
+   Japanese or other languages, also add an English translation and tick the
+   approval box.
+3. **Assess the news.** Open **News Impact**, tick up to 10 sources and click
+   **Assess**. Each source gets its own result; the overall score appears when
+   all of them finish.
+4. **Add advice.** Tick the advice cards you agree with and click **Add … to
+   roadmap**. The affected items get a **REVISE** or **ADJUST** badge and a
+   note that names the source. Adding the same advice again is skipped.
 
-```bash
-python src/api/roadmap_api.py
-```
+If an assessment fails (for example the analysis service is not running), the
+previous results stay on screen. Changing a setting marks results as out of
+date instead of deleting them; click **Assess** again to refresh them.
 
-In another terminal, serve the builder:
+How long it takes: in the first minute after starting Window 1, the service
+is still loading its AI models. After that, each source takes about 5–25
+seconds on a CPU, or usually under 1 second with a GPU. Assessing text again
+without changes is much faster until the service restarts.
 
-```bash
-cd roadmap_builder
-python -m http.server 8000
-```
+## Keep your work safe
 
-Open:
+- Roadmaps and sources are saved **only in this browser**, so clearing browser
+  data deletes them. Only the change history is also kept on this computer, in
+  `data/history.sqlite3`.
+- For a backup, open a roadmap and click **Export → Download with sources**.
+  Restore it with **Import**.
+- Always use the same address, **<http://127.0.0.1:8000>**. A different
+  address (for example `localhost:8000`) opens an empty app.
+
+## Good to know
+
+- Limits: 20 MB per file, 30 PDF pages, and 10 sources per assessment.
+- The scoring models understand **English only**. Text mostly in another script
+  (Thai, Japanese) is refused; add the English translation you approve. Other
+  Latin-script languages such as French are not detected, so translate them too.
+- Text read from scans and photos (OCR) can contain mistakes. Check it before
+  you assess. The first OCR in a language downloads that language's data.
+- The score measures how strongly the news affects the roadmap. It does not
+  say whether the source is reliable.
+- **AI-written advice (optional, off by default).** Copy `.env.example` to
+  `.env`, add your `OPENROUTER_API_KEY`, set `DDRM_EXTERNAL_AI=on`, restart
+  Window 1, and tick **Use hosted AI guidance** in the News Impact settings.
+  Without it, advice is written by fixed rules and nothing leaves your
+  computer.
+
+## If something goes wrong
+
+| What you see | What to do |
+| --- | --- |
+| The service refuses requests from the page | Open the app at exactly `http://127.0.0.1:8000`. |
+| "Cannot reach the analysis service" | Window 1 is closed or failed. Start it again. <http://127.0.0.1:7875/api/health> should show `"status":"ok"` and, after a minute, `"models":"ready"`. `"failed"` means a model could not load: check the window for the error and your internet connection. |
+| The first assessment is slow | Wait a minute after starting Window 1; the models are loading. |
+| Every assessment takes 5–25 s | Normal on a CPU. With an NVIDIA card, install version (B). If the window says `Running on CPU`, close other programs using the graphics card and restart. |
+| My roadmaps are gone | Check the address is exactly `http://127.0.0.1:8000`, or import your backup. |
+| `python` or `npm` is "not recognized" | Reinstall Python (tick **Add to PATH**) or Node.js, then open a new PowerShell window. |
+
+## For developers
+
+Install the developer tools (tests, MkDocs) with
+`.\.venv-cpu\Scripts\python.exe -m pip install -r requirements-dev.lock`
+(or the same with `.venv-gpu`). Use either environment in the commands below.
+
+| Command (from the project folder) | What it checks |
+| --- | --- |
+| `.\.venv-cpu\Scripts\python.exe -m pytest` | Python unit tests (no AI models needed) |
+| `cd roadmap_builder; npm.cmd test` | JavaScript helper tests |
+| `.\.venv-cpu\Scripts\python.exe tools\e2e_check.py` | The 10 English news scenarios against the running service; must match `testdata/baseline.json` |
+
+Status on 2026-10-31: 132 Python tests and 113 JavaScript tests pass, and all
+10 scenarios match the recorded baseline on both CPU and GPU.
 
 ```text
-http://127.0.0.1:8000/
+src/api/roadmap_api.py   web service the page talks to (port 7875)
+src/ui/app.py            the assessment pipeline, run_pipeline()
+src/core/                text extraction, key points, PESTLE, sentiment, scoring, advice
+src/config.py            models, weights and thresholds: read this before tuning
+roadmap_builder/         the web page (React, no build step) and its tests
+tests/  testdata/        Python tests and the labelled news scenarios
+tools/                   scenario runner and diagnostics
 ```
 
-Pick a roadmap template, then click **News Impact** in the top bar. The builder
-sends the current roadmap to the API, runs impact scoring, matches affected
-PESTLE drivers to roadmap items, and returns OpenRouter guidance when `.env`
-contains `OPENROUTER` or `OPENROUTER_API_KEY`.
-
-### Programmatic Usage
-
-```python
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
-
-from ui.app import run_pipeline
-
-# Analyze a URL
-result = run_pipeline(
-    input_text="https://example.com/news/article",
-    input_mode="URL",
-    max_points=5
-)
-
-print(f"Verdict: {result['verdict']}")
-print(f"Severity: {result['severity']}")
-```
-
-## Pipeline Steps
-
-| Step | Module | Description |
-|------|--------|-------------|
-| 1 | `extractor.py` | Fetch and clean article text from URL or raw input |
-| 2 | `keypoints.py` | Extract top-N key sentences using TF-IDF scoring |
-| 3 | `pestle.py` | Classify each sentence into PESTLE domains (zero-shot NLI) |
-| 4 | `router.py` + `sentiment.py` | Route to domain-specific sentiment model |
-| 5 | `impact.py` | Compute weighted impact scores and aggregate |
-| 6 | `impact.py` | Map severity to Maintain/Adjust/Revise verdict |
-
-## Configuration
-
-Edit `src/config.py` to customize:
-
-- **PESTLE_MODEL**: Zero-shot classifier for domain classification
-- **PESTLE_MODELS**: Domain-specific sentiment models
-- **PESTLE_WEIGHTS**: Base weights for each driver
-- **TOLERANCE_BANDS**: Thresholds for minor/moderate/major impact
-- **DDRM_THRESHOLDS**: Cut-offs for Maintain/Adjust/Revise
-
-## Impact Scoring Formula
-
-The scoring follows a two-layer MCDA approach:
-
-1. **Magnitude**: `M_ij = |sentiment| × confidence × relevance`
-2. **Discretization**: Map magnitude to 0/1/2 (minor/moderate/major)
-3. **Within-driver aggregation**: `SKD_i = Σ(x_ij × w_ij)`
-4. **Cross-driver aggregation**: `STRM = Σ(SKD_i × w_i*)`
-5. **Verdict**: Compare `STRM/2` against thresholds
-
-## Research Context
-
-This work was presented at **ISPIM Connects Bangkok 2026**:
-
-> Lertprasertphakorn, K. & Chalarak, N. (2026). Drivers & Trends Impact Assessment for Technology Roadmap Updating.
-
-Key contributions:
-- Operational DDRM workflow with traceable evidence
-- PESTLE as governance structure (not just classification)
-- Transparent tolerance logic with configurable parameters
-- Human-in-the-loop design for expert validation
+- All models load in float32 through `model_load_args()` in
+  `src/core/router.py`. A float16 checkpoint once made each assessment take
+  minutes on a CPU, and a test now guards this.
+- Re-run `tools\e2e_check.py` after any change to models, scoring or the
+  Python environment.
+- Further reading: [Changelog](CHANGELOG.md) and the handbook in `docs/`
+  ([index](docs/index.md), [architecture](docs/ARCHITECTURE.md),
+  [testing](docs/TESTING.md)). Verification reports (`docs/readiness/`) and
+  `archive/` stay on the original computer and are not in a Git clone.
 
 ## License
 
-Research prototype - Thammasat University
+See [LICENSE](LICENSE).

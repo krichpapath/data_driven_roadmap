@@ -1,0 +1,16 @@
+# Dev / test-only dependencies. Install with:
+#   pip install -r requirements-dev.txt
+#
+# Production deps stay in requirements.txt. Keeping these split avoids shipping
+# pytest into a deploy container.
+
+pytest==9.1.1
+
+httpx==0.28.1  # FastAPI TestClient
+
+# Documentation site (the developer handbook in docs/).
+#   mkdocs serve   -> preview at http://127.0.0.1:8000
+#   mkdocs build   -> static site into site/
+# Pinned below 2.0: MkDocs 2.0 removes the plugin system this theme relies on.
+mkdocs==1.6.1
+mkdocs-material==9.7.7

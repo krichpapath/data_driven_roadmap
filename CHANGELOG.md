@@ -4,10 +4,189 @@ All notable changes to the DDRM prototype are recorded here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) loosely.
 Dates use ISO `YYYY-MM-DD`.
 
-#SHORT AND SIMPLE IS THE MAIN GOAL OF THE CHANGE LOG.
+Entries describe changes and observations at the time they were recorded.
+Historical model results and old scenario names are not current acceptance
+evidence. See README.md for the verified development baseline.
 ---
 
 ## [Unreleased]
+
+### Final delivery hardening (2026-10-31)
+
+- Removed the prototype settings panel; the roadmap still has its Coach button. Phone navigation now shows each section name, and the home page labels its sample assessment as a demo.
+
+- All models now share one device decision: the GPU only with at least 4 GB of VRAM free, otherwise the CPU. The choice is printed at startup.
+- PESTLE and sentiment results are cached in memory (256 entries each), and the PESTLE anchors are embedded once.
+- The web page uses the production builds of React.
+- API: malformed roadmaps, non-Latin text and bad history timestamps now return an error; only `http://127.0.0.1:8000` may call it; foreign Host headers and bodies over 64 MB are refused; `/api/health` reports model state; hosted advice no longer holds the scoring lock; hosted AI defaults to off.
+- Removed newspaper3k and unreachable pipeline code; eight shared JS helpers now have one copy, used by both the app and its tests; added a Content-Security-Policy; the baseline moved to `testdata/` so a clone can run the scenarios; one product name, Data Driven Roadmap.
+- Archived the Gradio development UIs and `tools/dependency_audit.py`; removed `extract_keypoints()`, Gradio, Plotly and pandas from the developer install, and pytest from `requirements.lock`.
+
+### 2026-10-30 — QA audit fixes (tmp/qa-audit-2026-10-30)
+
+- News Impact keeps the last good assessment when a new run fails or is stopped
+  before any source finishes; changing a setting or opening "Paste text" marks
+  results stale instead of deleting them.
+- Adding the same advice twice no longer duplicates it on items or in History.
+- Removing layers or bands that hold items asks in the shared delete dialog
+  (a double-click can no longer confirm it); the toast states the count with Undo.
+- The overall score card shows batch numbers only; the per-source "Why" sits with
+  that source, and the Revise warning names the highest-scoring source.
+- Browser storage meter reports real usage and quota, including source files.
+- URL import accepts gzip/deflate pages, prefers IPv4 and names the real failure
+  (certificate, connection, timeout).
+- API: CORS limited to the local page; `DELETE /api/history/{id}` runs when a
+  roadmap is deleted (after the Undo window). Restart the API to apply.
+- Import rejects items spanning non-neighbouring bands and unknown PESTLE tags.
+- Smaller fixes: Enter adds an item, long titles wrap, phone breadcrumb no longer
+  overlaps, Assess button stays in view, case-insensitive tags, short-translation
+  warning, clearer import messages, landing placeholders and dead footer links
+  removed, footer contrast raised to AA, hosted advice no longer says "fixed verdict".
+
+### 2026-10-30 — One delete confirmation
+
+- Deleting roadmaps, folders, items, sources or saved filters now always asks in
+  the same centred dialog with a bin icon, instead of a mix of browser alerts
+  and in-page dialogs.
+
+### 2026-10-30 — New landing page and top bar
+
+- The landing page follows the new design: animated roadmap check, source
+  ticker, draggable snapshot timeline, stepped "How it works" demo and feature
+  grid. Its styles live in `roadmap_builder/landing.css`, scoped under `.lp`.
+  Demo content is illustrative and labelled as such; image areas are
+  placeholders until real pictures are supplied.
+- The shared top bar has a new logo, a sliding tab indicator and arrow-key tab
+  navigation, and condenses to one row when a roadmap page scrolls. Tabs slide
+  page content in by tab order without remounting it.
+
+### 2026-10-30 — Roadmap library redesign
+
+- Your roadmaps, New roadmap and the template library follow the "Roadmaps
+  Library" design: grid and list views,
+  search, sort, and a "Continue where you left off" row.
+- Roadmap folders (create, rename, delete; deleting a folder keeps its
+  roadmaps), pinning, multi-select with Ctrl/Cmd or Shift click, drag onto a
+  folder to move, bulk delete with one Undo, and Export JSON from each card.
+- The template library has categories, search, a preview, and lets you name
+  the roadmap and pick its folder before creating it
+  (`#/roadmaps/new/templates`).
+- Colour tokens match the design app-wide. Opening a roadmap no longer
+  changes its "last edited" time.
+
+### 2026-10-27 — History audit trail
+
+- History is now saved by the analysis service in `data/history.sqlite3`
+  (append-only, no 500-change limit). The browser keeps its own copy as an
+  outbox and offline cache; existing browser history is copied over, not deleted.
+- Each change records its origin (User, Advisor Expert, Source Import,
+  Automation, Unknown for older entries), who made it, and structured
+  before/after values. Advisor Expert entries keep their run ID, source
+  revision and evidence references, and group by run.
+- Readable summaries, important-change flags, word-level text diffs, Open item
+  and Open source links, advanced filters, saved views, and CSV/JSON export.
+- The Advisor Expert's own logic and the recommend API are unchanged; the
+  browser adds a run ID and time to each result it receives.
+
+### 2026-10-27 — Source import fixes
+
+- `Start Roadmap Review.cmd`: double-click to run the analysis service and the
+  web page in one window. The page stays on port 8000, where saved roadmaps live.
+
+- URL import now says "Cannot reach the analysis service at 127.0.0.1:7875…"
+  instead of the browser's bare "Failed to fetch" when the service is not running.
+- Thai OCR text joins the split vowel ำ (Tesseract returns ํ + า). On the Thai test
+  image, strict character error falls from 3.9% to 2.1%.
+- URL import sent `Host: name:443` on HTTPS, which Pantip and Yonhap reject with
+  HTTP 400; it now sends the bare host name.
+- Web pages are decoded with the charset the server declares (BOM, then HTTP
+  header), replacing only invalid bytes. One bad byte on Pantip topic pages had
+  turned all Thai text into Mac Roman mojibake.
+
+### 2026-10-26 — Two Python environments
+
+- Replaced `venv/`, `.venv-readiness/`, `tmp/clean-install/` and the broken
+  `archive/venv_root/` (Python 3.12 from another machine) with two
+  environments built from the same lock file: `.venv-cpu` (any computer) and
+  `.venv-gpu` (NVIDIA, PyTorch 2.14.1 + CUDA 13.0). Both pass the Python tests
+  and match the ten-scenario baseline. README install and start steps updated.
+
+### 2026-10-21 — News Impact speed fix
+
+- Fixed assessments taking about 3 minutes per source (10 sources: about half an
+  hour). Transformers 5 loads a model in the precision it was saved in, and the
+  PESTLE checkpoint is float16, which is very slow on a CPU. Every model now loads
+  in float32 (`core/router.py: model_load_args`), and the six PESTLE hypotheses
+  are scored in one batch. Measured on the ten English scenarios: about 28 s per
+  source on the CPU (was 173–197 s) with identical verdicts and severities.
+- Use an NVIDIA GPU automatically when the installed PyTorch supports one (about
+  1 s per source on an RTX 5060 Laptop GPU). See README "Optional: NVIDIA GPU".
+- The API loads all models in the background at start-up, so the first
+  assessment no longer waits for them. `tools/e2e_check.py` prints each
+  scenario's time; `pytest.ini` limits test discovery to `tests/`.
+
+### 2026-10-19 — Reusable multi-source assessment
+
+- Added a per-roadmap, folder-based source library with IndexedDB persistence,
+  original files, editable text, saved revisions and translation review. Deleting a
+  roadmap deletes its sources; duplicates start empty. The earlier shared test
+  library (storage v1) is discarded on upgrade.
+- Added one header on every page: breadcrumbs (Roadmaps / roadmap) and, inside a
+  roadmap, Roadmap · Sources · News Impact tabs with their own URLs. News Impact is a
+  page that keeps ticked sources and results across tab switches; "Assess selected"
+  on the Sources tab opens it with those sources ticked.
+- Assess each selected source through the existing API and display an equal-weight
+  severity mean only when all succeed. Preserve source/revision/evidence attribution
+  when applying and exporting roadmap advice.
+- Added protected URL extraction, PDF.js text extraction and local Tesseract OCR.
+  Pin Tesseract.js 6.0.1 plus measured official language weights; Japanese spacing
+  and scanned tables still require manual correction. English scoring is unchanged.
+- Added regression coverage and local research/OCR/verification reports under
+  `docs/multi-source/`. No Django, server database or authentication was introduced.
+
+### 2026-10-16 — Selected advice model upgrade
+
+- Default hosted advice to GPT-6 Luna; offer GPT-6.1 Sol, Claude Sonnet 5.5,
+  Claude Haiku 5.5 and Qwen3.7 Plus. Migrate old saved GPT-4o defaults to Luna.
+- Use model-compatible reasoning options and strict-parameter provider routing;
+  report empty or token-truncated advice as failures. Hosted AI remains opt-in.
+- Preserve English scoring models and historical readiness evidence. See
+  [upgrade verification](docs/readiness/advice-model-upgrade.md).
+
+### 2026-10-16 — Phase 1 readiness
+
+- Isolated and locked dependency updates; recorded installed versions, model
+  revisions, full English scenario baselines and security/update inventories.
+- Wired server-validated model selection and explicit hosted-AI-off controls;
+  report the actual provider model and visible fallback errors.
+- Aligned severity labels with 0.35/0.65; bounded URL fetching, blocked private
+  destinations and unsafe redirects, and reused downloaded HTML across parsers.
+- Serialized assessment calls after a cold-start concurrency check exposed a
+  model-loading dtype race. Preserved model weights and scoring rules.
+- Protected roadmap autosave during route changes, surfaced failed storage, and
+  made full JSON export downloadable using the existing export dialog.
+- Added 28 Python and four JavaScript regression cases. See
+  [readiness report](docs/readiness/report.md) for actual checks and limitations.
+- Preserved all 31 original requirements and 15 acceptance scenarios in the
+  release checklist; Django and multi-source implementation remain later phases.
+
+
+### 2026-10-15 — Archive completed academic work and refresh development docs
+
+- Moved university reports, research references, submission files, and old
+  handbook output under `archive/university/`, preserving their contents.
+- Saved the original README and a local SHA-256 move manifest. Added
+  `archive/README.md` with the locations and Git/local-only boundaries.
+- Refreshed README, handbook navigation, folder map, and contributor guidance
+  for ongoing development. Historical evaluations are clearly separated from
+  current verification.
+- Corrected stale model names and configuration comments; application behavior,
+  dependencies, and scoring values are unchanged.
+- Verified all 156 preserved files by SHA-256, Git ignore boundaries, 54
+  backend tests, 50 frontend tests, and a strict handbook build with local
+  links checked. Real-model scenarios were not rerun.
+
+Earlier dated entries below are retained as historical records.
 
 ### 2026-04-29 — Impact tuning was too sensitive
 

@@ -22,6 +22,7 @@ const TEMPLATES = [
   {
     id: "industrial-digital",
     name: "Industrial Digital",
+    group: "Industry",
     tagline: "Tech roadmap for digital industry sectors (matches the อุตสาหกรรมดิจิทัล review doc)",
     layers: 7,
     bands: 3,
@@ -58,7 +59,7 @@ const TEMPLATES = [
       { name: "Open Innovation Process",                      catId: "dpr", bands: ["b1","b2"],       pestle: ["S","E"] },
       { name: "Digital Sandbox & Digital Twins",              catId: "rd",  bands: ["b1","b2","b3"],  pestle: ["T"] },
       { name: "AI · NLP · Computer Vision · IoT · Smart City",catId: "rd",  bands: ["b1","b2","b3"],  pestle: ["T"] },
-      { name: "Security — Blockchain, Cybersecurity",         catId: "rd",  bands: ["b1","b2","b3"],  pestle: ["T","L"] },
+      { name: "Security: Blockchain, Cybersecurity",         catId: "rd",  bands: ["b1","b2","b3"],  pestle: ["T","L"] },
       { name: "High-Performance Compute Cluster",             catId: "inf", bands: ["b1","b2","b3"],  pestle: ["T"] },
       { name: "High-Performance Storage",                     catId: "inf", bands: ["b1","b2","b3"],  pestle: ["T"] },
       { name: "Managed ML Services",                          catId: "inf", bands: ["b1","b2","b3"],  pestle: ["T"] },
@@ -69,6 +70,7 @@ const TEMPLATES = [
   {
     id: "saas-product",
     name: "SaaS Product",
+    group: "Product",
     tagline: "Quarterly product roadmap with themes, releases and dependencies",
     layers: 5,
     bands: 4,
@@ -92,6 +94,7 @@ const TEMPLATES = [
   {
     id: "research-program",
     name: "Research Program",
+    group: "Research",
     tagline: "Phased academic / R&D roadmap from hypothesis to publication",
     layers: 5,
     bands: 3,
@@ -114,7 +117,8 @@ const TEMPLATES = [
   {
     id: "blank",
     name: "Blank",
-    tagline: "Start from scratch — define every layer and time band yourself",
+    group: "Basic",
+    tagline: "Start from scratch. Define every layer and time band yourself.",
     layers: 3,
     bands: 3,
     items: 0,
@@ -138,7 +142,7 @@ function buildFromTemplate(tplId) {
   const tpl = TEMPLATES.find(t => t.id === tplId) || TEMPLATES[0];
   return {
     title: tpl.id === "industrial-digital"
-      ? "Digital Industry — Technology Roadmap"
+      ? "Digital Industry: Technology Roadmap"
       : tpl.id === "blank"
       ? "Untitled Roadmap"
       : `${tpl.name} Roadmap`,
@@ -163,7 +167,7 @@ const GLOSSARY = {
   layer: {
     term: "Layer",
     pill: "Row",
-    def: "A horizontal row in the roadmap that groups items of the same kind — e.g. <b>Business Drivers</b>, <b>Products</b>, <b>R&D</b>. Stack layers from <b>why</b> at the top to <b>how</b> at the bottom."
+    def: "A horizontal row in the roadmap that groups items of the same kind, e.g. <b>Business Drivers</b>, <b>Products</b>, <b>R&D</b>. Stack layers from <b>why</b> at the top to <b>how</b> at the bottom."
   },
   band: {
     term: "Time band",
@@ -178,7 +182,7 @@ const GLOSSARY = {
   item: {
     term: "Item",
     pill: "Card",
-    def: "A single thing on your roadmap — a driver, a product, a milestone. Belongs to <b>one layer</b> and <b>one or more time bands</b>."
+    def: "A single thing on your roadmap, such as a driver, a product or a milestone. Belongs to <b>one layer</b> and <b>one or more time bands</b>."
   }
 };
 

@@ -1,8 +1,10 @@
 # sentiment.py — run sentiment on a sentence using the routed model
 
+from functools import lru_cache
 from typing import Dict
 
-from core.router import get_model_config
+from core.router import get_model_config, model_load_args
+from config import MODEL_REVISIONS
 
 # model_id -> transformers pipeline (loaded once per model on first use)
 _pipeline_cache: Dict[str, object] = {}
@@ -20,14 +22,15 @@ _LABEL_TO_SCORE = {"positive": 1, "neutral": 0, "negative": -1}
 
 def _get_pipeline(model_id: str, max_length: int):
     if model_id not in _pipeline_cache:
-        from transformers import pipeline
-        _pipeline_cache[model_id] = pipeline(
-            "text-classification",
-            model=model_id,
-            max_length=max_length,
-            truncation=True,
-            device=-1,   # CPU; set to 0 for GPU
-        )
+        try:
+            from transformers import pipeline
+            _pipeline_cache[model_id] = pipeline(
+                "text-classification", model=model_id,
+                revision=MODEL_REVISIONS[model_id], trust_remote_code=False,
+                max_length=max_length, truncation=True, **model_load_args(),
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Sentiment model unavailable: {model_id}. Download the pinned revision and restart the API.") from exc
     return _pipeline_cache[model_id]
 
 
@@ -40,6 +43,7 @@ def sentiment_to_score(label: str) -> int:
     return _LABEL_TO_SCORE.get(label, 0)
 
 
+@lru_cache(maxsize=256)  # re-assessing a source repeats the same text; callers must not mutate the result
 def classify_sentiment(sentence: str, pestle_label: str) -> Dict:
     """
     Run the sentiment model routed for this PESTLE domain.

@@ -2,81 +2,45 @@
 #
 # Strategy chain (first success wins):
 #   1. trafilatura       — best general-purpose, multilingual, handles most news sites
-#   2. newspaper3k       — strong on traditional news (BBC, Reuters, etc.)
-#   3. readability-lxml  — Mozilla Readability port, robust HTML cleanup
-#   4. BeautifulSoup     — last-resort heuristic over <p> tags
+#   2. readability-lxml  — Mozilla Readability port, robust HTML cleanup
+#   3. BeautifulSoup     — last-resort heuristic over <p> tags
 #
 # All strategies are language-agnostic; trafilatura auto-detects 40+ languages.
 
-from typing import Tuple, Optional
+from typing import Tuple
 import re
-
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/122.0 Safari/537.36"
-)
+from core.url_fetch import fetch_html
 
 MIN_TEXT_LEN = 200  # below this we treat extraction as failed and try next strategy
 
 
 # ─── strategy 1: trafilatura ──────────────────────────────────────────────────
 
-def _extract_trafilatura(url: str, html: Optional[str] = None) -> Tuple[str, str]:
+def _extract_trafilatura(html: str) -> Tuple[str, str]:
     import trafilatura
-    from trafilatura.settings import use_config
-
-    cfg = use_config()
-    cfg.set("DEFAULT", "USER_AGENTS", USER_AGENT)
-    cfg.set("DEFAULT", "DOWNLOAD_TIMEOUT", "20")
-
-    downloaded = html or trafilatura.fetch_url(url, config=cfg)
-    if not downloaded:
+    if not html:
         return "", ""
 
     text = trafilatura.extract(
-        downloaded,
+        html,
         include_comments=False,
         include_tables=False,
         favor_recall=True,
-        config=cfg,
     ) or ""
 
     title = ""
-    meta = trafilatura.extract_metadata(downloaded)
+    meta = trafilatura.extract_metadata(html)
     if meta and meta.title:
         title = meta.title
 
     return title.strip(), text.strip()
 
 
-# ─── strategy 2: newspaper3k ──────────────────────────────────────────────────
+# ─── strategy 2: readability-lxml ─────────────────────────────────────────────
 
-def _extract_newspaper(url: str) -> Tuple[str, str]:
-    from newspaper import Article, Config
-
-    cfg = Config()
-    cfg.browser_user_agent = USER_AGENT
-    cfg.request_timeout = 20
-    cfg.fetch_images = False
-
-    article = Article(url, config=cfg)
-    article.download()
-    article.parse()
-    return (article.title or "").strip(), (article.text or "").strip()
-
-
-# ─── strategy 3: readability-lxml ─────────────────────────────────────────────
-
-def _extract_readability(url: str, html: Optional[str] = None) -> Tuple[str, str]:
-    import requests
+def _extract_readability(html: str) -> Tuple[str, str]:
     from readability import Document
     from bs4 import BeautifulSoup
-
-    if html is None:
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=20)
-        resp.raise_for_status()
-        html = resp.text
 
     doc = Document(html)
     title = (doc.short_title() or "").strip()
@@ -86,16 +50,10 @@ def _extract_readability(url: str, html: Optional[str] = None) -> Tuple[str, str
     return title, text
 
 
-# ─── strategy 4: BeautifulSoup heuristic ──────────────────────────────────────
+# ─── strategy 3: BeautifulSoup heuristic ──────────────────────────────────────
 
-def _extract_bs4(url: str, html: Optional[str] = None) -> Tuple[str, str]:
-    import requests
+def _extract_bs4(html: str) -> Tuple[str, str]:
     from bs4 import BeautifulSoup
-
-    if html is None:
-        resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=20)
-        resp.raise_for_status()
-        html = resp.text
 
     soup = BeautifulSoup(html, "html.parser")
 
@@ -132,25 +90,14 @@ def extract_article(url: str) -> Tuple[str, str]:
     if not url:
         raise ValueError("URL is empty.")
 
-    errors = []
-
-    # Cache HTML once for strategies that can reuse it (3 and 4)
-    cached_html: Optional[str] = None
-
-    strategies = [
-        ("trafilatura",  lambda: _extract_trafilatura(url)),
-        ("newspaper3k",  lambda: _extract_newspaper(url)),
-        ("readability",  lambda: _extract_readability(url, cached_html)),
-        ("bs4",          lambda: _extract_bs4(url, cached_html)),
-    ]
+    _, cached_html = fetch_html(url)
 
     best: Tuple[str, str] = ("", "")
 
-    for name, fn in strategies:
+    for parse in (_extract_trafilatura, _extract_readability, _extract_bs4):
         try:
-            title, text = fn()
-        except Exception as exc:
-            errors.append(f"{name}: {exc}")
+            title, text = parse(cached_html)
+        except Exception:
             continue
 
         if text and len(text) >= MIN_TEXT_LEN:
@@ -164,7 +111,7 @@ def extract_article(url: str) -> Tuple[str, str]:
         return best  # short but non-empty — better than nothing
 
     raise ValueError(
-        f"All extraction strategies failed for: {url}\n" + "\n".join(errors)
+        "No readable article text was found. The page may require a login or JavaScript; paste the article text instead."
     )
 
 

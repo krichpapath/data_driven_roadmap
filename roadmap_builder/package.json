@@ -1,0 +1,22 @@
+{
+  "name": "ddrm-roadmap-builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser UI for DDRM, with local PDF/OCR assets and Vitest tests. No bundler is required.",
+  "type": "module",
+  "engines": {
+    "node": "^22.12.0 || ^24.0.0 || >=26.0.0"
+  },
+  "scripts": {
+    "test": "vitest run --dir __tests__",
+    "test:watch": "vitest --dir __tests__"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "6.2.6",
+    "vitest": "5.0.4"
+  },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299",
+    "tesseract.js": "6.0.1"
+  }
+}

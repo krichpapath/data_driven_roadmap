@@ -93,7 +93,7 @@ Knob: `DDRM_THRESHOLDS = {"adjust": 0.35, "revise": 0.65}`.
 | Stage | Model | Purpose |
 |---|---|---|
 | Keypoint extraction | `KEYPOINTS_EMBED_MODEL` (sentence-transformers) | Pick top-N informative + driver-relevant + diverse sentences |
-| PESTLE classification | `PESTLE_MODEL` (zero-shot, bart-large-mnli) | Tag each keypoint with one of 6 drivers |
+| PESTLE classification | `PESTLE_MODEL` (`MoritzLaurer/deberta-v3-base-zeroshot-v2.0`) | Tag each keypoint with a PESTLE driver, or mark it Unclassified below the confidence gate |
 | Sentiment | `PESTLE_MODELS[driver].model_id` | Score sentiment per driver (different model per driver) |
 
 ---
